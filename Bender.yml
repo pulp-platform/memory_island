@@ -1,0 +1,16 @@
+package:
+  name: memory_island
+  authors:
+    - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
+
+dependencies:
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.32.0 }
+  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
+  cluster_interconnect: { git: "https://github.com/pulp-platform/cluster_interconnect.git", version: 1.2.1 }
+
+sources:
+  # Level 0
+  - src/stream_mem_to_banks_det.sv
+  - src/varlat_inorder_interco.sv
+  # Level 1
+  - src/memory_island_core.sv
