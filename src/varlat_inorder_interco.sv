@@ -85,11 +85,11 @@ module varlat_inorder_interco #(
     simplex_xbar #(
       .NumIn              (NumIn              ),
       .NumOut             (NumOut             ),
-      .DataWidth          (ReqDataWidth       ),
+      .DataWidth          (AggDataWidth          ),
       .ExtPrio            (1'b0               ),
       .AxiVldRdy          (1'b1               ),
       .SpillRegister      (1'b0               ),
-      .FallThroughRegister(FallThroughRegister)
+      .FallThroughRegister(1'b0               )
     ) req_xbar (
       .clk_i,
       .rst_ni,
@@ -101,7 +101,7 @@ module varlat_inorder_interco #(
       .valid_o   ( req_o        ),
       .ini_addr_o( ini_addr_req ),
       .ready_i   ( gnt_i & out_fifo_gnt ),
-      .data_o    ( data_agg_o   )
+      .data_o    ( data_agg_out   )
     );
 
     // Response path
@@ -125,7 +125,7 @@ module varlat_inorder_interco #(
         .flush_i   ('0),
         .testmode_i('0),
 
-        .full_o    (fifo_gnt_n),
+        .full_o    (fifo_gnt_n[i]),
         .empty_o   (),
         .usage_o   (),
 
@@ -140,7 +140,7 @@ module varlat_inorder_interco #(
     for (genvar i = 0; i < NumOut; i++) begin
       fifo_v3 #(
         .FALL_THROUGH(1'b0), // expect at least 1 cycle latency
-        .DATA_WIDTH  (NumOutLog2),
+        .DATA_WIDTH  (NumInLog2),
         .DEPTH       (NumOutstanding)
       ) i_ini_sel (
         .clk_i,
@@ -149,7 +149,7 @@ module varlat_inorder_interco #(
         .flush_i   ('0),
         .testmode_i('0),
 
-        .full_o    (out_fifo_gnt_n),
+        .full_o    (out_fifo_gnt_n[i]),
         .empty_o   (),
         .usage_o   (),
 

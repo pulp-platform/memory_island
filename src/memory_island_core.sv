@@ -184,7 +184,7 @@ module memory_island_core #(
     .add_i  ( narrow_addr_cut   ),
     .wen_i  ( narrow_we_cut     ),
     .wdata_i( narrow_wdata_cut  ),
-    .be_i   ( narrow_be_cut     ),
+    .be_i   ( narrow_strb_cut   ),
     .gnt_o  ( narrow_gnt_cut    ),
     .vld_o  ( narrow_rvalid_cut ),
     .rdata_o( narrow_rdata_cut  ),
@@ -241,7 +241,7 @@ module memory_island_core #(
     .BeWidth            ( WideStrbWidth ),
     .AddrMemWidth       ( BankAddrMemWidth ),
     .WriteRespOn        ( 1 ),
-    .NumOutstanding     ( /* TODO */ ),
+    .NumOutstanding     ( 3 ),
     .Topology           ( tcdm_interconnect_pkg::LIC )
   ) i_wide_interco (
     .clk_i,
@@ -268,9 +268,10 @@ module memory_island_core #(
   );
 
   for (genvar i = 0; i < NumWideBanks; i++) begin : gen_wide_banks
+    logic [NWDivisor-1:0][AddrWideWordBit-1:0] unused;
     // Split wide requests to banks
     stream_mem_to_banks_det #(
-      .AddrWidth ( AddrWidth     ),
+      .AddrWidth ( BankAddrMemWidth + AddrWideWordBit ),
       .DataWidth ( WideDataWidth ),
       .WUserWidth (1),
       .RUserWidth (1),
@@ -284,7 +285,7 @@ module memory_island_core #(
 
       .req_i        ( wide_req_intc   [i] ),
       .gnt_o        ( wide_gnt_intc   [i] ),
-      .addr_i       ( wide_addr_intc  [i] ),
+      .addr_i       ( {wide_addr_intc  [i], {AddrWideWordBit{1'b0}}} ),
       .wdata_i      ( wide_wdata_intc [i] ),
       .strb_i       ( wide_strb_intc  [i] ),
       .wuser_i      ( '0 ),
@@ -295,7 +296,7 @@ module memory_island_core #(
       .rdata_o      ( wide_rdata_intc [i] ),
       .bank_req_o   ( wide_req_bank   [i] ),
       .bank_gnt_i   ( wide_gnt_bank   [i] ),
-      .bank_addr_o  ( wide_addr_bank  [i] ),
+      .bank_addr_o  ( {wide_addr_bank  [i], unused} ),
       .bank_wdata_o ( wide_wdata_bank [i] ),
       .bank_strb_o  ( wide_strb_bank  [i] ),
       .bank_wuser_o (),

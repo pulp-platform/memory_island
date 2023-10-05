@@ -7,6 +7,7 @@ dependencies:
   common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.32.0 }
   tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
   cluster_interconnect: { git: "https://github.com/pulp-platform/cluster_interconnect.git", version: 1.2.1 }
+  axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.39.1 }
 
 sources:
   # Level 0
@@ -14,3 +15,5 @@ sources:
   - src/varlat_inorder_interco.sv
   # Level 1
   - src/memory_island_core.sv
+  # Level 2
+  - src/axi_memory_island_wrap.sv
