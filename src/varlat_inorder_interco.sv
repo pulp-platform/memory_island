@@ -63,12 +63,12 @@ module varlat_inorder_interco #(
     // extract bank index
     assign bank_sel[j] = add_i[j][ByteOffWidth+NumOutLog2-1:ByteOffWidth];
     // aggregate data to be routed to slaves
-    assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][ByteOffWidth+NumOutLog2+AddrMemWidth-1:ByteOffWidth+NumOutLog2], wdata_i[j]};
+    assign data_agg_in[j] = {we_i[j], be_i[j], add_i[j][ByteOffWidth+NumOutLog2+AddrMemWidth-1:ByteOffWidth+NumOutLog2], wdata_i[j]};
   end
 
   // disaggregate data
   for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
-    assign {wen_o[k], be_o[k], add_o[k], wdata_o[k]} = data_agg_out[k];
+    assign {we_o[k], be_o[k], add_o[k], wdata_o[k]} = data_agg_out[k];
   end
 
 

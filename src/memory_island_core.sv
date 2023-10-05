@@ -73,7 +73,7 @@ module memory_island_core #(
   localparam int unsigned AddrNarrowWordBit = $clog2(NarrowDataWidth/8);
   localparam int unsigned AddrWideWordBit   = $clog2(WideDataWidth/8);
   localparam int unsigned AddrNarrowWideBit = AddrWideWordBit + $clog2(NarrowExtraBF);
-  localparam int unsigend AddrWideBankBit   = AddrWideWordBit + $clog2(NumWideBanks);
+  localparam int unsigned AddrWideBankBit   = AddrWideWordBit + $clog2(NumWideBanks);
   localparam int unsigned AddrTopBit        = AddrWideBankBit + $clog2(WordsPerBank);
 
   localparam int unsigned NarrowAddrMemWidth = AddrTopBit-AddrNarrowWideBit;
