@@ -1,4 +1,5 @@
 .bender/
+scripts/compile.tcl
 
 # Questa
 modelsim.ini
