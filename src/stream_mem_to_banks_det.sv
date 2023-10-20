@@ -134,13 +134,13 @@ module stream_mem_to_banks_det #(
     ) i_ft_reg (
       .clk_i,
       .rst_ni,
-      .flush_i    ( 1'b0          ),
-      .testmode_i ( 1'b0          ),
+      .flush_i    ( 1'b0                 ),
+      .testmode_i ( 1'b0                 ),
       .usage_o    (),
-      .data_i     ( bank_req[i]   ),
-      .valid_i    ( req_valid     ),
-      .ready_o    ( req_ready[i]  ),
-      .data_o     ( bank_oup[i]   ),
+      .data_i     ( bank_req[i]          ),
+      .valid_i    ( req_valid            ),
+      .ready_o    ( req_ready[i]         ),
+      .data_o     ( bank_oup[i]          ),
       .valid_o    ( bank_req_internal[i] ),
       .ready_i    ( bank_gnt_internal[i] )
     );

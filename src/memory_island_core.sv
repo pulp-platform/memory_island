@@ -220,13 +220,13 @@ module memory_island_core #(
     for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_intc_bank_rdata_l2
       logic [NarrowWideBankSelWidth-1:0] narrow_rdata_sel;
       shift_reg #(
-        .dtype( logic [NarrowWideBankSelWidth-1:0] ),
-        .Depth( NarrowIntcBankLat )
+        .dtype ( logic [NarrowWideBankSelWidth-1:0] ),
+        .Depth ( NarrowIntcBankLat                  )
       ) i_narrow_rdata_sel (
         .clk_i,
         .rst_ni,
         .d_i   ( narrow_addr_intc [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] ),
-        .d_o   ( narrow_rdata_sel )
+        .d_o   ( narrow_rdata_sel                                                 )
       );
       assign narrow_rdata_intc[(j*NWDivisor) + k] = narrow_rdata_bank[(narrow_rdata_sel*NarrowExtraBF) + j][k];
     end
@@ -234,14 +234,14 @@ module memory_island_core #(
 
   // Wide interconnect
   varlat_inorder_interco #(
-    .NumIn              ( NumWideReq ),
-    .NumOut             ( NumWideBanks ),
-    .AddrWidth          ( AddrWidth ),
-    .DataWidth          ( WideDataWidth ),
-    .BeWidth            ( WideStrbWidth ),
-    .AddrMemWidth       ( BankAddrMemWidth ),
-    .WriteRespOn        ( 1 ),
-    .NumOutstanding     ( 3 ),
+    .NumIn              ( NumWideReq                 ),
+    .NumOut             ( NumWideBanks               ),
+    .AddrWidth          ( AddrWidth                  ),
+    .DataWidth          ( WideDataWidth              ),
+    .BeWidth            ( WideStrbWidth              ),
+    .AddrMemWidth       ( BankAddrMemWidth           ),
+    .WriteRespOn        ( 1                          ),
+    .NumOutstanding     ( 3                          ),
     .Topology           ( tcdm_interconnect_pkg::LIC )
   ) i_wide_interco (
     .clk_i,
@@ -268,42 +268,45 @@ module memory_island_core #(
   );
 
   for (genvar i = 0; i < NumWideBanks; i++) begin : gen_wide_banks
-    logic [NWDivisor-1:0][AddrWideWordBit-1:0] unused;
+    logic [NWDivisor-1:0][BankAddrMemWidth + AddrWideWordBit-1:0] bank_addr_tmp;
+    for (genvar j = 0; j < NWDivisor; j++) begin
+      assign wide_addr_bank[i][j] = bank_addr_tmp [j][AddrWideWordBit+:BankAddrMemWidth];
+    end
     // Split wide requests to banks
     stream_mem_to_banks_det #(
-      .AddrWidth ( BankAddrMemWidth + AddrWideWordBit ),
-      .DataWidth ( WideDataWidth ),
-      .WUserWidth (1),
-      .RUserWidth (1),
-      .NumBanks  ( NWDivisor     ),
-      .HideStrb  ( 1'b1          ),
-      .MaxTrans  ( 2             ), // TODO tune?
-      .FifoDepth ( 3             )  // TODO tune?
+      .AddrWidth  ( BankAddrMemWidth + AddrWideWordBit ),
+      .DataWidth  ( WideDataWidth                      ),
+      .WUserWidth ( 1                                  ),
+      .RUserWidth ( 1                                  ),
+      .NumBanks   ( NWDivisor                          ),
+      .HideStrb   ( 1'b1                               ),
+      .MaxTrans   ( 2                                  ), // TODO tune?
+      .FifoDepth  ( 3                                  )  // TODO tune?
     ) i_wide_to_banks (
       .clk_i,
       .rst_ni,
 
-      .req_i        ( wide_req_intc   [i] ),
-      .gnt_o        ( wide_gnt_intc   [i] ),
-      .addr_i       ( {wide_addr_intc  [i], {AddrWideWordBit{1'b0}}} ),
-      .wdata_i      ( wide_wdata_intc [i] ),
-      .strb_i       ( wide_strb_intc  [i] ),
+      .req_i        ( wide_req_intc   [i]                           ),
+      .gnt_o        ( wide_gnt_intc   [i]                           ),
+      .addr_i       ( {wide_addr_intc [i], {AddrWideWordBit{1'b0}}} ),
+      .wdata_i      ( wide_wdata_intc [i]                           ),
+      .strb_i       ( wide_strb_intc  [i]                           ),
       .wuser_i      ( '0 ),
-      .we_i         ( wide_we_intc    [i] ),
-      .rvalid_o     ( wide_rvalid_intc[i] ),
-      .rready_i     ( wide_rready_intc[i] ),
+      .we_i         ( wide_we_intc    [i]                           ),
+      .rvalid_o     ( wide_rvalid_intc[i]                           ),
+      .rready_i     ( wide_rready_intc[i]                           ),
       .ruser_o      (),
-      .rdata_o      ( wide_rdata_intc [i] ),
-      .bank_req_o   ( wide_req_bank   [i] ),
-      .bank_gnt_i   ( wide_gnt_bank   [i] ),
-      .bank_addr_o  ( {wide_addr_bank  [i], unused} ),
-      .bank_wdata_o ( wide_wdata_bank [i] ),
-      .bank_strb_o  ( wide_strb_bank  [i] ),
+      .rdata_o      ( wide_rdata_intc [i]                           ),
+      .bank_req_o   ( wide_req_bank   [i]                           ),
+      .bank_gnt_i   ( wide_gnt_bank   [i]                           ),
+      .bank_addr_o  ( bank_addr_tmp                                 ),
+      .bank_wdata_o ( wide_wdata_bank [i]                           ),
+      .bank_strb_o  ( wide_strb_bank  [i]                           ),
       .bank_wuser_o (),
-      .bank_we_o    ( wide_we_bank    [i] ),
-      .bank_rvalid_i( wide_rvalid_bank[i] ),
-      .bank_rdata_i ( wide_rdata_bank [i] ),
-      .bank_ruser_i ( '0 )
+      .bank_we_o    ( wide_we_bank    [i]                           ),
+      .bank_rvalid_i( wide_rvalid_bank[i]                           ),
+      .bank_rdata_i ( wide_rdata_bank [i]                           ),
+      .bank_ruser_i ( '0                                            )
     );
     for (genvar j = 0; j < NWDivisor; j++) begin : gen_narrow_banks
       // narrow/wide arbitration, narrow always has priority
