@@ -24,18 +24,11 @@ module memory_island_core #(
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
   parameter int unsigned WordsPerBank    = 1024,
 
-  // /// Spill Narrow Input
-  // parameter bit          SpillNarrowReq  = 1'b0,
-  // /// Spill Narrow Output
-  // parameter bit          SpillNarrowRsp  = 1'b0,
-  // /// Spill Wide Input
-  // parameter bit          SpillWideReq    = 1'b0,
-  // /// Spill Wide Output
-  // parameter bit          SpillWideRsp    = 1'b0,
-  // /// Spill Bank Request TODO: differentiate N/W?
-  // parameter bit          SpillBankReq    = 1'b0,
-  // /// Spill Bank Response TODO: differentiate N/W?
-  // parameter bit          SpillBankRsp    = 1'b0,
+  /// Spill Narrow
+  parameter int unsigned SpillNarrowReqEntry = 0,
+  parameter int unsigned SpillNarrowRspEntry = 0,
+  parameter int unsigned SpillNarrowReqRouted = 0,
+  parameter int unsigned SpillNarrowRspRouted = 0,
 
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth = NarrowDataWidth/8,
@@ -79,7 +72,7 @@ module memory_island_core #(
   localparam int unsigned NarrowAddrMemWidth = AddrTopBit-AddrNarrowWideBit;
   localparam int unsigned BankAddrMemWidth   = $clog2(WordsPerBank);
 
-  localparam int unsigned NarrowIntcBankLat = 1;
+  localparam int unsigned NarrowIntcBankLat = 1+SpillNarrowReqRouted+SpillNarrowRspRouted;
 
   logic [   NumNarrowReq-1:0]                                        narrow_req_cut;
   logic [   NumNarrowReq-1:0]                                        narrow_gnt_cut;
@@ -108,6 +101,15 @@ module memory_island_core #(
   logic [WidePseudoBanks-1:0]                                        narrow_rvalid_intc;
   logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_rdata_intc;
 
+  logic [WidePseudoBanks-1:0]                                        narrow_req_intc_cut;
+  logic [WidePseudoBanks-1:0]                                        narrow_gnt_intc_cut;
+  logic [WidePseudoBanks-1:0]               [NarrowAddrMemWidth-1:0] narrow_addr_intc_cut;
+  logic [WidePseudoBanks-1:0]                                        narrow_we_intc_cut;
+  logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_wdata_intc_cut;
+  logic [WidePseudoBanks-1:0]               [   NarrowStrbWidth-1:0] narrow_strb_intc_cut;
+  logic [WidePseudoBanks-1:0]                                        narrow_rvalid_intc_cut;
+  logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_rdata_intc_cut;
+
   logic [   NumWideBanks-1:0]                                        wide_req_intc;
   logic [   NumWideBanks-1:0]                                        wide_gnt_intc;
   logic [   NumWideBanks-1:0]               [  BankAddrMemWidth-1:0] wide_addr_intc;
@@ -123,7 +125,6 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         narrow_we_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] narrow_wdata_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] narrow_strb_bank;
-  // logic [   NumWideBanks-1:0][NWDivisor-1:0]                      narrow_rvalid_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] narrow_rdata_bank;
 
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         wide_req_bank;
@@ -143,16 +144,45 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank;
 
+  for (genvar i = 0; i < NumNarrowReq; i++) begin
+    mem_req_multicut #(
+      .DataWidth( NarrowDataWidth ),
+      .AddrWidth( AddrWidth       ),
+      .NumCuts  ( SpillNarrowReqEntry )
+    ) i_cut_narrow_req_entry (
+      .clk_i,
+      .rst_ni,
 
-  // TODO: cut if needed
-  assign narrow_req_cut   = narrow_req_i;
-  assign narrow_gnt_o     = narrow_gnt_cut;
-  assign narrow_addr_cut  = narrow_addr_i;
-  assign narrow_we_cut    = narrow_we_i;
-  assign narrow_wdata_cut = narrow_wdata_i;
-  assign narrow_strb_cut  = narrow_strb_i;
-  assign narrow_rvalid_o  = narrow_rvalid_cut;
-  assign narrow_rdata_o   = narrow_rdata_cut;
+      .req_i   ( narrow_req_i    [i] ),
+      .gnt_o   ( narrow_gnt_o    [i] ),
+      .addr_i  ( narrow_addr_i   [i] ),
+      .we_i    ( narrow_we_i     [i] ),
+      .wdata_i ( narrow_wdata_i  [i] ),
+      .strb_i  ( narrow_strb_i   [i] ),
+
+      .req_o   ( narrow_req_cut  [i] ),
+      .gnt_i   ( narrow_gnt_cut  [i] ),
+      .addr_o  ( narrow_addr_cut [i] ),
+      .we_o    ( narrow_we_cut   [i] ),
+      .wdata_o ( narrow_wdata_cut[i] ),
+      .strb_o  ( narrow_strb_cut [i] )
+    );
+    mem_rsp_multicut #(
+      .DataWidth ( NarrowDataWidth     ),
+      .NumCuts   ( SpillNarrowRspEntry )
+    ) i_cut_narrow_rsp_entry (
+      .clk_i,
+      .rst_ni,
+
+      .rvalid_i ( narrow_rvalid_cut[i] ),
+      .rready_o (),
+      .rdata_i  ( narrow_rdata_cut [i] ),
+
+      .rvalid_o ( narrow_rvalid_o  [i] ),
+      .rready_i ( 1'b1                 ),
+      .rdata_o  ( narrow_rdata_o   [i] )
+    );
+  end
 
   assign wide_req_cut   = wide_req_i;
   assign wide_gnt_o     = wide_gnt_cut;
@@ -198,20 +228,61 @@ module memory_island_core #(
     .rdata_i( narrow_rdata_intc )
   );
 
+  for (genvar i = 0; i < WidePseudoBanks; i++) begin : gen_spill_narrow_routed
+    mem_req_multicut #(
+      .AddrWidth ( NarrowAddrMemWidth   ),
+      .DataWidth ( NarrowDataWidth      ),
+      .NumCuts   ( SpillNarrowReqRouted )
+    ) i_narrow_routed_req_cut (
+      .clk_i,
+      .rst_ni,
+
+      .req_i  ( narrow_req_intc      [i] ),
+      .gnt_o  ( narrow_gnt_intc      [i] ),
+      .addr_i ( narrow_addr_intc     [i] ),
+      .we_i   ( narrow_we_intc       [i] ),
+      .wdata_i( narrow_wdata_intc    [i] ),
+      .strb_i ( narrow_strb_intc     [i] ),
+
+      .req_o  ( narrow_req_intc_cut  [i] ),
+      .gnt_i  ( narrow_gnt_intc_cut  [i] ),
+      .addr_o ( narrow_addr_intc_cut [i] ),
+      .we_o   ( narrow_we_intc_cut   [i] ),
+      .wdata_o( narrow_wdata_intc_cut[i] ),
+      .strb_o ( narrow_strb_intc_cut [i] )
+    );
+
+    mem_rsp_multicut #(
+      .DataWidth ( NarrowDataWidth      ),
+      .NumCuts   ( SpillNarrowRspRouted )
+    ) i_narrow_routed_rsp_cut (
+      .clk_i,
+      .rst_ni,
+
+      .rvalid_i( narrow_rvalid_intc_cut[i] ),
+      .rready_o(),
+      .rdata_i ( narrow_rdata_intc_cut [i] ),
+
+      .rvalid_o( narrow_rvalid_intc    [i] ),
+      .rready_i( 1'b1 ),
+      .rdata_o ( narrow_rdata_intc     [i] )
+    );
+  end
+
   // narrow gnt always set
-  assign narrow_gnt_intc = '1;
+  assign narrow_gnt_intc_cut = '1;
 
   localparam int unsigned NarrowWideBankSelWidth = AddrWideBankBit-AddrNarrowWideBit;
 
   for (genvar i = 0; i < TotalBanks/WidePseudoBanks; i++) begin : gen_narrow_intc_bank_l1
     for (genvar j = 0; j < NarrowExtraBF; j++) begin : gen_narrow_intc_bank_l2
       for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_intc_bank_l3
-        assign narrow_req_bank  [(i*NarrowExtraBF)+j][k] = narrow_req_intc  [(j*NWDivisor) + k] &
-                                                          (narrow_addr_intc [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] == i);
-        assign narrow_addr_bank [(i*NarrowExtraBF)+j][k] = narrow_addr_intc [(j*NWDivisor) + k][AddrTopBit-AddrNarrowWideBit-1:NarrowWideBankSelWidth];
-        assign narrow_we_bank   [(i*NarrowExtraBF)+j][k] = narrow_we_intc   [(j*NWDivisor) + k];
-        assign narrow_wdata_bank[(i*NarrowExtraBF)+j][k] = narrow_wdata_intc[(j*NWDivisor) + k];
-        assign narrow_strb_bank [(i*NarrowExtraBF)+j][k] = narrow_strb_intc [(j*NWDivisor) + k];
+        assign narrow_req_bank  [(i*NarrowExtraBF)+j][k] = narrow_req_intc_cut  [(j*NWDivisor) + k] &
+                                                          (narrow_addr_intc_cut [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] == i);
+        assign narrow_addr_bank [(i*NarrowExtraBF)+j][k] = narrow_addr_intc_cut [(j*NWDivisor) + k][AddrTopBit-AddrNarrowWideBit-1:NarrowWideBankSelWidth];
+        assign narrow_we_bank   [(i*NarrowExtraBF)+j][k] = narrow_we_intc_cut   [(j*NWDivisor) + k];
+        assign narrow_wdata_bank[(i*NarrowExtraBF)+j][k] = narrow_wdata_intc_cut[(j*NWDivisor) + k];
+        assign narrow_strb_bank [(i*NarrowExtraBF)+j][k] = narrow_strb_intc_cut [(j*NWDivisor) + k];
       end
     end
   end
@@ -225,10 +296,10 @@ module memory_island_core #(
       ) i_narrow_rdata_sel (
         .clk_i,
         .rst_ni,
-        .d_i   ( narrow_addr_intc [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] ),
-        .d_o   ( narrow_rdata_sel                                                 )
+        .d_i   ( narrow_addr_intc_cut [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] ),
+        .d_o   ( narrow_rdata_sel                                                     )
       );
-      assign narrow_rdata_intc[(j*NWDivisor) + k] = narrow_rdata_bank[(narrow_rdata_sel*NarrowExtraBF) + j][k];
+      assign narrow_rdata_intc_cut[(j*NWDivisor) + k] = narrow_rdata_bank[(narrow_rdata_sel*NarrowExtraBF) + j][k];
     end
   end
 
