@@ -29,6 +29,9 @@ module memory_island_core #(
   parameter int unsigned SpillNarrowRspEntry = 0,
   parameter int unsigned SpillNarrowReqRouted = 0,
   parameter int unsigned SpillNarrowRspRouted = 0,
+  /// Spill at Bank
+  parameter int unsigned SpillReqBank    = 0,
+  parameter int unsigned SpillRspBank    = 0,
 
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth = NarrowDataWidth/8,
@@ -72,7 +75,7 @@ module memory_island_core #(
   localparam int unsigned NarrowAddrMemWidth = AddrTopBit-AddrNarrowWideBit;
   localparam int unsigned BankAddrMemWidth   = $clog2(WordsPerBank);
 
-  localparam int unsigned NarrowIntcBankLat = 1+SpillNarrowReqRouted+SpillNarrowRspRouted;
+  localparam int unsigned NarrowIntcBankLat = 1+SpillNarrowReqRouted+SpillNarrowRspRouted+SpillReqBank+SpillRspBank;
 
   logic [   NumNarrowReq-1:0]                                        narrow_req_cut;
   logic [   NumNarrowReq-1:0]                                        narrow_gnt_cut;
@@ -143,6 +146,14 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] strb_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank;
+
+  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         req_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0][  BankAddrMemWidth-1:0] addr_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         we_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] wdata_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] strb_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank_cut;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank_cut;
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin
     mem_req_multicut #(
@@ -259,11 +270,11 @@ module memory_island_core #(
       .clk_i,
       .rst_ni,
 
-      .rvalid_i( narrow_rvalid_intc_cut[i] ),
+      .rvalid_i( 1'b1 ), // Static latency, signal not used
       .rready_o(),
       .rdata_i ( narrow_rdata_intc_cut [i] ),
 
-      .rvalid_o( narrow_rvalid_intc    [i] ),
+      .rvalid_o(),
       .rready_i( 1'b1 ),
       .rdata_o ( narrow_rdata_intc     [i] )
     );
@@ -390,6 +401,45 @@ module memory_island_core #(
       assign narrow_rdata_bank[i][j] =  rdata_bank     [i][j];
       assign wide_rdata_bank  [i][j] =  rdata_bank     [i][j];
 
+      mem_req_multicut #(
+        .DataWidth ( NarrowDataWidth  ),
+        .AddrWidth ( BankAddrMemWidth ),
+        .NumCuts   ( SpillReqBank     )
+      ) i_bank_req_cut (
+        .clk_i,
+        .rst_ni,
+
+        .req_i  ( req_bank  [i][j] ),
+        .gnt_o  (),
+        .addr_i ( addr_bank [i][j] ),
+        .we_i   ( we_bank   [i][j]),
+        .wdata_i( wdata_bank[i][j] ),
+        .strb_i ( strb_bank [i][j] ),
+
+        .req_o  ( req_bank_cut  [i][j] ),
+        .gnt_i  (),
+        .addr_o ( addr_bank_cut [i][j] ),
+        .we_o   ( we_bank_cut   [i][j] ),
+        .wdata_o( wdata_bank_cut[i][j] ),
+        .strb_o ( strb_bank_cut [i][j] )
+      );
+
+      mem_rsp_multicut #(
+        .DataWidth ( NarrowDataWidth ),
+        .NumCuts   ( SpillRspBank    )
+      ) i_bank_rsp_cut (
+        .clk_i,
+        .rst_ni,
+
+        .rvalid_i( 1'b1 ),
+        .rready_o(),
+        .rdata_i ( rdata_bank_cut[i][j] ),
+
+        .rvalid_o(),
+        .rready_i( 1'b1 ),
+        .rdata_o ( rdata_bank[i][j] )
+      );
+
       // Memory bank
       tc_sram #(
         .NumWords  ( WordsPerBank    ),
@@ -400,19 +450,29 @@ module memory_island_core #(
       ) i_bank (
         .clk_i,
         .rst_ni,
-        .req_i   ( req_bank  [i][j] ),
-        .we_i    ( we_bank   [i][j] ),
-        .addr_i  ( addr_bank [i][j] ),
-        .wdata_i ( wdata_bank[i][j] ),
-        .be_i    ( strb_bank [i][j] ),
-        .rdata_o ( rdata_bank[i][j] )
+        .req_i   ( req_bank_cut  [i][j] ),
+        .we_i    ( we_bank_cut   [i][j] ),
+        .addr_i  ( addr_bank_cut [i][j] ),
+        .wdata_i ( wdata_bank_cut[i][j] ),
+        .be_i    ( strb_bank_cut [i][j] ),
+        .rdata_o ( rdata_bank_cut[i][j] )
       );
+
+      logic [SpillReqBank+SpillRspBank:0] shift_rvalid_d, shift_rvalid_q;
+      for (genvar k = 0; k < SpillReqBank+SpillRspBank+1; k++) begin
+        if (k == 0) begin: gen_shift_in
+          assign shift_rvalid_d[k] = req_bank[i][j] & wide_gnt_bank[i][j];
+        end else begin: gen_shift
+          assign shift_rvalid_d[k] = shift_rvalid_q[k-1];
+        end
+      end
+      assign wide_rvalid_bank[i][j] = shift_rvalid_q[SpillReqBank+SpillRspBank];
 
       always_ff @(posedge clk_i or negedge rst_ni) begin : proc_wide_bank_rvalid
         if(~rst_ni) begin
-          wide_rvalid_bank[i][j] <= 0;
+          shift_rvalid_q <= '0;
         end else begin
-          wide_rvalid_bank[i][j] <= req_bank[i][j] & wide_gnt_bank[i][j];
+          shift_rvalid_q <= shift_rvalid_d;
         end
       end
     end
