@@ -89,9 +89,9 @@ module axi_memory_island_wrap #(
       .AxiDataWidth ( NarrowDataWidth  ),
       .IdWidth      ( AxiNarrowIdWidth ),
       .MemDataWidth ( NarrowDataWidth  ),
-      .BufDepth     (),
+      .BufDepth     ( 2                ),
       .HideStrb     ( 1'b0             ),
-      .OutFifoDepth ()
+      .OutFifoDepth ( 1                )
     ) i_narrow_conv (
       .clk_i,
       .rst_ni,
@@ -119,9 +119,9 @@ module axi_memory_island_wrap #(
       .AxiDataWidth ( WideDataWidth  ),
       .IdWidth      ( AxiWideIdWidth ),
       .MemDataWidth ( WideDataWidth  ),
-      .BufDepth     (),
+      .BufDepth     ( 2              ),
       .HideStrb     ( 1'b0           ),
-      .OutFifoDepth ()
+      .OutFifoDepth ( 1              )
     ) i_wide_conv (
       .clk_i,
       .rst_ni,
