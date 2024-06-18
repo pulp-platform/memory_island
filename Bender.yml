@@ -12,6 +12,8 @@ dependencies:
 
 sources:
   # Level 0
+  - src/mem_req_multicut.sv
+  - src/mem_rsp_multicut.sv
   - src/stream_mem_to_banks_det.sv
   - src/varlat_inorder_interco.sv
   # Level 1

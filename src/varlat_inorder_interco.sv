@@ -31,33 +31,33 @@ module varlat_inorder_interco #(
   input  logic clk_i,
   input  logic rst_ni,
   // master side
-  input  logic [NumIn-1:0]                      req_i,     // request signal
-  input  logic [NumIn-1:0][AddrWidth-1:0]       add_i,     // tcdm address
-  input  logic [NumIn-1:0]                      we_i,      // 1: store, 0: load
-  input  logic [NumIn-1:0][DataWidth-1:0]       wdata_i,   // write data
-  input  logic [NumIn-1:0][BeWidth-1:0]         be_i,      // byte enable
-  output logic [NumIn-1:0]                      gnt_o,     // grant (combinationally dependent on req_i and add_i
-  output logic [NumIn-1:0]                      vld_o,     // response valid, also asserted if write responses ar
-  output logic [NumIn-1:0][DataWidth-1:0]       rdata_o,   // data response (for load commands)
+  input  logic [ NumIn-1:0]                   req_i,     // request signal
+  input  logic [ NumIn-1:0][   AddrWidth-1:0] add_i,     // tcdm address
+  input  logic [ NumIn-1:0]                   we_i,      // 1: store, 0: load
+  input  logic [ NumIn-1:0][   DataWidth-1:0] wdata_i,   // write data
+  input  logic [ NumIn-1:0][     BeWidth-1:0] be_i,      // byte enable
+  output logic [ NumIn-1:0]                   gnt_o,     // grant (combinationally dependent on req_i and add_i
+  output logic [ NumIn-1:0]                   vld_o,     // response valid, also asserted if write responses ar
+  output logic [ NumIn-1:0][   DataWidth-1:0] rdata_o,   // data response (for load commands)
   // slave side
-  output  logic [NumOut-1:0]                    req_o,     // request out
-  input   logic [NumOut-1:0]                    gnt_i,     // grant input
-  output  logic [NumOut-1:0][AddrMemWidth-1:0]  add_o,     // address within bank
-  output  logic [NumOut-1:0]                    we_o,      // write enable
-  output  logic [NumOut-1:0][DataWidth-1:0]     wdata_o,   // write data
-  output  logic [NumOut-1:0][BeWidth-1:0]       be_o,      // byte enable
-  input   logic [NumOut-1:0]                    rvalid_i,
-  output  logic [NumOut-1:0]                    rready_o,
-  input   logic [NumOut-1:0][DataWidth-1:0]     rdata_i    // data response (for load commands)
+  output logic [NumOut-1:0]                   req_o,     // request out
+  input  logic [NumOut-1:0]                   gnt_i,     // grant input
+  output logic [NumOut-1:0][AddrMemWidth-1:0] add_o,     // address within bank
+  output logic [NumOut-1:0]                   we_o,      // write enable
+  output logic [NumOut-1:0][   DataWidth-1:0] wdata_o,   // write data
+  output logic [NumOut-1:0][     BeWidth-1:0] be_o,      // byte enable
+  input  logic [NumOut-1:0]                   rvalid_i,
+  output logic [NumOut-1:0]                   rready_o,
+  input  logic [NumOut-1:0][   DataWidth-1:0] rdata_i    // data response (for load commands)
 );
 
   localparam int unsigned NumOutLog2    = $clog2(NumOut);
   localparam int unsigned NumInLog2     = $clog2(NumIn);
   localparam int unsigned AggDataWidth  = 1+BeWidth+AddrMemWidth+DataWidth;
-  logic [NumIn-1:0][AggDataWidth-1:0]  data_agg_in;
+  logic [ NumIn-1:0][AggDataWidth-1:0] data_agg_in;
   logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
-  logic [NumIn-1:0][NumOutLog2-1:0] bank_sel, bank_sel_rsp;
-  logic [NumOut-1:0][NumInLog2-1:0] ini_addr_req, ini_addr_rsp;
+  logic [ NumIn-1:0][  NumOutLog2-1:0] bank_sel, bank_sel_rsp;
+  logic [NumOut-1:0][   NumInLog2-1:0] ini_addr_req, ini_addr_rsp;
 
   for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
     // extract bank index
@@ -73,7 +73,7 @@ module varlat_inorder_interco #(
 
 
   if (Topology == tcdm_interconnect_pkg::LIC) begin : gen_lic
-    logic [NumIn-1:0] xbar_gnt, fifo_gnt, fifo_gnt_n;
+    logic [ NumIn-1:0] xbar_gnt, fifo_gnt, fifo_gnt_n;
     logic [NumOut-1:0] out_fifo_gnt, out_fifo_gnt_n;
 
     assign fifo_gnt = ~fifo_gnt_n;
@@ -83,25 +83,25 @@ module varlat_inorder_interco #(
 
     // Request path
     simplex_xbar #(
-      .NumIn              (NumIn              ),
-      .NumOut             (NumOut             ),
-      .DataWidth          (AggDataWidth          ),
-      .ExtPrio            (1'b0               ),
-      .AxiVldRdy          (1'b1               ),
-      .SpillRegister      (1'b0               ),
-      .FallThroughRegister(1'b0               )
+      .NumIn               ( NumIn        ),
+      .NumOut              ( NumOut       ),
+      .DataWidth           ( AggDataWidth ),
+      .ExtPrio             ( 1'b0         ),
+      .AxiVldRdy           ( 1'b1         ),
+      .SpillRegister       ( 1'b0         ),
+      .FallThroughRegister ( 1'b0         )
     ) req_xbar (
       .clk_i,
       .rst_ni,
-      .rr_i      ( '0           ),
-      .valid_i   ( req_i & fifo_gnt ),
-      .ready_o   ( xbar_gnt     ),
-      .tgt_addr_i( bank_sel     ),
-      .data_i    ( data_agg_in  ),
-      .valid_o   ( req_o        ),
-      .ini_addr_o( ini_addr_req ),
-      .ready_i   ( gnt_i & out_fifo_gnt ),
-      .data_o    ( data_agg_out   )
+      .rr_i       ( '0                   ),
+      .valid_i    ( req_i & fifo_gnt     ),
+      .ready_o    ( xbar_gnt             ),
+      .tgt_addr_i ( bank_sel             ),
+      .data_i     ( data_agg_in          ),
+      .valid_o    ( req_o                ),
+      .ini_addr_o ( ini_addr_req         ),
+      .ready_i    ( gnt_i & out_fifo_gnt ),
+      .data_o     ( data_agg_out         )
     );
 
     // Response path
@@ -115,9 +115,9 @@ module varlat_inorder_interco #(
 
     for (genvar i = 0; i < NumIn; i++) begin
       fifo_v3 #(
-        .FALL_THROUGH(1'b0), // expect at least 1 cycle latency
-        .DATA_WIDTH  (NumOutLog2),
-        .DEPTH       (NumOutstanding)
+        .FALL_THROUGH( 1'b0           ), // expect at least 1 cycle latency
+        .DATA_WIDTH  ( NumOutLog2     ),
+        .DEPTH       ( NumOutstanding )
       ) i_bank_sel (
         .clk_i,
         .rst_ni,
@@ -125,23 +125,23 @@ module varlat_inorder_interco #(
         .flush_i   ('0),
         .testmode_i('0),
 
-        .full_o    (fifo_gnt_n[i]),
+        .full_o    ( fifo_gnt_n[i]       ),
         .empty_o   (),
         .usage_o   (),
 
-        .data_i    ( bank_sel[i] ),
+        .data_i    ( bank_sel[i]         ),
         .push_i    ( req_i[i] & gnt_o[i] ),
 
-        .data_o    ( bank_sel_rsp[i] ),
-        .pop_i     ( vld_o[i] )
+        .data_o    ( bank_sel_rsp[i]     ),
+        .pop_i     ( vld_o[i]            )
       );
     end
 
     for (genvar i = 0; i < NumOut; i++) begin
       fifo_v3 #(
-        .FALL_THROUGH(1'b0), // expect at least 1 cycle latency
-        .DATA_WIDTH  (NumInLog2),
-        .DEPTH       (NumOutstanding)
+        .FALL_THROUGH ( 1'b0           ), // expect at least 1 cycle latency
+        .DATA_WIDTH   ( NumInLog2      ),
+        .DEPTH        ( NumOutstanding )
       ) i_ini_sel (
         .clk_i,
         .rst_ni,
@@ -149,15 +149,15 @@ module varlat_inorder_interco #(
         .flush_i   ('0),
         .testmode_i('0),
 
-        .full_o    (out_fifo_gnt_n[i]),
+        .full_o    ( out_fifo_gnt_n[i]                     ),
         .empty_o   (),
         .usage_o   (),
 
-        .data_i    ( ini_addr_req[i] ),
+        .data_i    ( ini_addr_req[i]                       ),
         .push_i    ( req_o[i] & gnt_i[i] & out_fifo_gnt[i] ),
 
-        .data_o    ( ini_addr_rsp[i] ),
-        .pop_i     ( rvalid_i[i] & rready_o[i] )
+        .data_o    ( ini_addr_rsp[i]                       ),
+        .pop_i     ( rvalid_i[i] & rready_o[i]             )
       );
     end
   end else begin
