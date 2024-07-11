@@ -47,7 +47,8 @@ module axi_memory_island_wrap #(
   /// Extra multiplier for the Narrow banking factor (baseline is WideWidth/NarrowWidth) (power of 2)
   parameter int unsigned NarrowExtraBF        = 1,
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
-  parameter int unsigned WordsPerBank         = 1024
+  parameter int unsigned WordsPerBank         = 1024,
+  parameter              MemorySimInit        = "none"
 ) (
   input  logic                               clk_i,
   input  logic                               rst_ni,
@@ -162,7 +163,8 @@ module axi_memory_island_wrap #(
     .SpillWideReqSplit    ( SpillWideReqSplit    ),
     .SpillWideRspSplit    ( SpillWideRspSplit    ),
     .SpillReqBank         ( SpillReqBank         ),
-    .SpillRspBank         ( SpillRspBank         )
+    .SpillRspBank         ( SpillRspBank         ),
+    .MemorySimInit        ( MemorySimInit        )
   ) i_memory_island (
     .clk_i,
     .rst_ni,
