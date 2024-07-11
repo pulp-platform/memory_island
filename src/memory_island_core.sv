@@ -40,6 +40,8 @@ module memory_island_core #(
   parameter int unsigned SpillReqBank         = 0,
   parameter int unsigned SpillRspBank         = 0,
 
+  parameter              MemorySimInit        = "none",
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth      = NarrowDataWidth/8,
   parameter int unsigned WideStrbWidth        = WideDataWidth/8,
@@ -581,7 +583,8 @@ module memory_island_core #(
         .DataWidth ( NarrowDataWidth ),
         .ByteWidth ( 8               ),
         .NumPorts  ( 1               ),
-        .Latency   ( 1               )
+        .Latency   ( 1               ),
+        .SimInit   ( MemorySimInit   )
       ) i_bank (
         .clk_i,
         .rst_ni,
