@@ -105,15 +105,15 @@ module varlat_inorder_interco #(
     );
 
     // Response path
-    for (genvar i = 0; i < NumIn; i++) begin
+    for (genvar i = 0; i < NumIn; i++) begin : gen_rsp
       assign vld_o[i] = rvalid_i[bank_sel_rsp[i]] & rready_o[bank_sel_rsp[i]] & (ini_addr_rsp[bank_sel_rsp[i]] == i);
       assign rdata_o[i] = rdata_i[bank_sel_rsp[i]];
     end
-    for (genvar i = 0; i < NumOut; i++) begin
+    for (genvar i = 0; i < NumOut; i++) begin : gen_rready
       assign rready_o[i] = bank_sel_rsp[ini_addr_rsp[i]] == i;
     end
 
-    for (genvar i = 0; i < NumIn; i++) begin
+    for (genvar i = 0; i < NumIn; i++) begin : gen_rsp_port_match
       fifo_v3 #(
         .FALL_THROUGH( 1'b0           ), // expect at least 1 cycle latency
         .DATA_WIDTH  ( NumOutLog2     ),
@@ -137,7 +137,7 @@ module varlat_inorder_interco #(
       );
     end
 
-    for (genvar i = 0; i < NumOut; i++) begin
+    for (genvar i = 0; i < NumOut; i++) begin : gen_out_fifo
       fifo_v3 #(
         .FALL_THROUGH ( 1'b0           ), // expect at least 1 cycle latency
         .DATA_WIDTH   ( NumInLog2      ),
