@@ -74,7 +74,19 @@ module memory_island_core #(
   localparam int unsigned WidePseudoBanks = NWDivisor * NarrowExtraBF;
   localparam int unsigned TotalBanks = NWDivisor * NumWideBanks;
 
-  // Addr: GlobalBits _ InBankAddr _ WideBankSel _ NarrowBankSel _ Strb
+  // Addr: GlobalBits _ InBankAddr _ WideBankSel _ SubBankSel _ Strb
+  //                |            |          |  |            |-------- AddrNarrowWordBit
+  //                |            |          |  |--------------------- AddrWideWordBit
+  //                |            |          |------------------------ AddrNarrowWideBit
+  //                |            |----------------------------------- AddrWideBankBit
+  //                |------------------------------------------------ AddrTopBit
+  //
+  //                 <---------------------->                         NarrowAddrMemWidth
+  //                 <----------->                                    BankAddrMemWidth
+  //
+  // Wide   interco: AddrWideBankBit   -> AddrWideWordBit   for routing
+  // Narrow interco: AddrNarrowWideBit -> AddrNarrowWordBit for routing
+
   localparam int unsigned AddrNarrowWordBit = $clog2(NarrowDataWidth/8);
   localparam int unsigned AddrWideWordBit   = $clog2(WideDataWidth/8);
   localparam int unsigned AddrNarrowWideBit = AddrWideWordBit + $clog2(NarrowExtraBF);
@@ -183,7 +195,7 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank_spill;
 
-  for (genvar i = 0; i < NumNarrowReq; i++) begin
+  for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_entry_cuts
     mem_req_multicut #(
       .DataWidth ( NarrowDataWidth     ),
       .AddrWidth ( AddrWidth           ),
@@ -223,7 +235,7 @@ module memory_island_core #(
     );
   end
 
-  for (genvar i = 0; i < NumWideReq; i++) begin
+  for (genvar i = 0; i < NumWideReq; i++) begin : gen_wide_entry_cuts
     mem_req_multicut #(
       .DataWidth ( WideDataWidth     ),
       .AddrWidth ( AddrWidth         ),
@@ -348,7 +360,7 @@ module memory_island_core #(
       for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_routed_bank_l3
         assign narrow_req_bank  [(i*NarrowExtraBF)+j][k] = narrow_req_routed_spill  [(j*NWDivisor) + k] &
                                                           (narrow_addr_routed_spill [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] == i);
-        assign narrow_addr_bank [(i*NarrowExtraBF)+j][k] = narrow_addr_routed_spill [(j*NWDivisor) + k][AddrTopBit-AddrNarrowWideBit-1:NarrowWideBankSelWidth];
+        assign narrow_addr_bank [(i*NarrowExtraBF)+j][k] = narrow_addr_routed_spill [(j*NWDivisor) + k][NarrowAddrMemWidth-1:NarrowWideBankSelWidth];
         assign narrow_we_bank   [(i*NarrowExtraBF)+j][k] = narrow_we_routed_spill   [(j*NWDivisor) + k];
         assign narrow_wdata_bank[(i*NarrowExtraBF)+j][k] = narrow_wdata_routed_spill[(j*NWDivisor) + k];
         assign narrow_strb_bank [(i*NarrowExtraBF)+j][k] = narrow_strb_routed_spill [(j*NWDivisor) + k];
@@ -447,7 +459,7 @@ module memory_island_core #(
     );
 
     logic [NWDivisor-1:0][BankAddrMemWidth + AddrWideWordBit-1:0] bank_addr_tmp;
-    for (genvar j = 0; j < NWDivisor; j++) begin
+    for (genvar j = 0; j < NWDivisor; j++) begin : gen_wide_addr_assign
       assign wide_addr_bank[i][j] = bank_addr_tmp [j][AddrWideWordBit+:BankAddrMemWidth];
     end
     // Split wide requests to banks
@@ -598,7 +610,7 @@ module memory_island_core #(
 
       // Shift reg for wide rvalid
       logic [SpillReqBank+SpillRspBank:0] shift_rvalid_d, shift_rvalid_q;
-      for (genvar k = 0; k < SpillReqBank+SpillRspBank+1; k++) begin
+      for (genvar k = 0; k < SpillReqBank+SpillRspBank+1; k++) begin : gen_shift_rvalid
         if (k == 0) begin: gen_shift_in
           assign shift_rvalid_d[k] = req_bank[i][j] & wide_gnt_bank[i][j];
         end else begin: gen_shift

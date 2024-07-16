@@ -1,7 +1,10 @@
 .bender/
 scripts/compile.tcl
+working_dir/
 
 # Questa
 modelsim.ini
 work/
 transcript
+vsim.wlf
+vsim_stacktrace*
