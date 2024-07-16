@@ -4,7 +4,7 @@
 
 # Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
-BENDER ?= bender
+BENDER ?= bender -d $(CURDIR)
 
-scripts/compile.tcl:
+scripts/compile.tcl: Bender.yml Bender.lock
 	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > scripts/compile.tcl

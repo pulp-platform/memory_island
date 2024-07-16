@@ -8,10 +8,10 @@ package:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
 
 dependencies:
-  common_cells:         { git: "https://github.com/pulp-platform/common_cells.git",         version: 1.32.0 }
+  common_cells:         { git: "https://github.com/pulp-platform/common_cells.git",         rev: f3bb7fb74daa2ceac894366375427da538e11e19 } # requires #224
   tech_cells_generic:   { git: "https://github.com/pulp-platform/tech_cells_generic.git",   version: 0.2.13 }
   cluster_interconnect: { git: "https://github.com/pulp-platform/cluster_interconnect.git", version: 1.2.1  }
-  axi:                  { git: "https://github.com/pulp-platform/axi.git",                  version: 0.39.1 }
+  axi:                  { git: "https://github.com/pulp-platform/axi.git",                  rev: 10424e3d6863c0a461b2abb6fd71df7266d29187 } # requires #344, #345, #346
   common_verification:  { git: "https://github.com/pulp-platform/common_verification.git",  version: 0.2.0  }
 
 sources:
