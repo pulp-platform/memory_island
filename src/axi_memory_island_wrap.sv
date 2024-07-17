@@ -51,6 +51,12 @@ module axi_memory_island_wrap #(
   parameter int unsigned NarrowExtraBF        = 1,
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
   parameter int unsigned WordsPerBank         = 1024,
+  /// Use DMA
+  parameter bit          EnableDMA            = 1'b0,
+  /// Register types for DMA configuration
+  parameter type dma_reg_req_t                = logic,
+  parameter type dma_reg_rsp_t                = logic,
+
   parameter              MemorySimInit        = "none"
 ) (
   input  logic                               clk_i,
@@ -60,7 +66,10 @@ module axi_memory_island_wrap #(
   output axi_narrow_rsp_t [NumNarrowReq-1:0] axi_narrow_rsp_o,
 
   input  axi_wide_req_t   [  NumWideReq-1:0] axi_wide_req_i,
-  output axi_wide_rsp_t   [  NumWideReq-1:0] axi_wide_rsp_o
+  output axi_wide_rsp_t   [  NumWideReq-1:0] axi_wide_rsp_o,
+
+  input  dma_reg_req_t                       dma_reg_req_i,
+  output dma_reg_rsp_t                       dma_reg_rsp_o
 );
 
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
@@ -143,6 +152,24 @@ module axi_memory_island_wrap #(
       .mem_rvalid_i ( wide_rvalid   [2*i+:2] ),
       .mem_rdata_i  ( wide_rdata    [2*i+:2] )
     );
+  end
+
+  if (EnableDMA) begin : gen_dma
+
+  end else begin : gen_dma_error_slv
+    if ($bits(dma_reg_rsp_t) > 1) begin : gen_actual_err_slv
+      reg_err_slv #(
+        .DW     (32),
+        .ERR_VAL('0),
+        .req_t  (dma_reg_req_t),
+        .rsp_t  (dma_reg_rsp_t)
+      ) i_reg_err (
+        .req_i(dma_reg_req_i),
+        .rsp_o(dma_reg_rsp_o)
+      );
+    end else begin : gen_tie_logic_0
+      assign dma_reg_rsp_o = '0;
+    end
   end
 
 
