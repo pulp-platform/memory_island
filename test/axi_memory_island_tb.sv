@@ -605,6 +605,7 @@ module axi_memory_island_tb #(
     .NumWideBanks         ( NumWideBanks    ),
     .NarrowExtraBF        ( NarrowExtraBF   ),
     .WordsPerBank         ( WordsPerBank    ),
+    .EnableDMA            ( 1'b0            ),
     .MemorySimInit        ( "zeros"         )
   ) i_dut (
     .clk_i            ( clk            ),
@@ -612,7 +613,9 @@ module axi_memory_island_tb #(
     .axi_narrow_req_i ( dut_narrow_req ),
     .axi_narrow_rsp_o ( dut_narrow_rsp ),
     .axi_wide_req_i   ( dut_wide_req   ),
-    .axi_wide_rsp_o   ( dut_wide_rsp   )
+    .axi_wide_rsp_o   ( dut_wide_rsp   ),
+    .dma_reg_req_i    ( '0             ),
+    .dma_reg_rsp_o    ()
   );
 
   // Golden model

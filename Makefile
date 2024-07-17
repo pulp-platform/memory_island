@@ -7,6 +7,19 @@
 MEMORY_ISLAND_ROOT := $(CURDIR)
 
 BENDER ?= bender -d $(MEMORY_ISLAND_ROOT)
+PYTHON ?= python
+
+IDMA_DIR := $(shell $(BENDER) path idma)
+# ifneq ($(wildcard .bender),)
+-include $(IDMA_DIR)/idma.mk
+
+# endif
+src/dma/memory_island_dma.sv: $(IDMA_RTL_DIR)/idma_transport_layer_rw_obi.sv $(IDMA_RTL_DIR)/idma_legalizer_rw_obi.sv $(IDMA_RTL_DIR)/idma_backend_rw_obi.sv
+	$(CAT) $^ > $@
+
+# 	python $(IDMA_DIR)/util/gen_idma.py --help
+# 	python $(IDMA_DIR)/util/gen_idma.py --entity backend --tpl $(IDMA_ROOT)/src/backend/tpl/idma_backend.sv.tpl --ids obi rw obi rw
+
 
 VSIM ?= vsim
 
