@@ -123,7 +123,6 @@ module memory_island_core #(
   logic [WidePseudoBanks-1:0]                                        narrow_we_routed;
   logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_wdata_routed;
   logic [WidePseudoBanks-1:0]               [   NarrowStrbWidth-1:0] narrow_strb_routed;
-  logic [WidePseudoBanks-1:0]                                        narrow_rvalid_routed;
   logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_rdata_routed;
 
   logic [WidePseudoBanks-1:0]                                        narrow_req_routed_spill;
@@ -132,7 +131,6 @@ module memory_island_core #(
   logic [WidePseudoBanks-1:0]                                        narrow_we_routed_spill;
   logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_wdata_routed_spill;
   logic [WidePseudoBanks-1:0]               [   NarrowStrbWidth-1:0] narrow_strb_routed_spill;
-  logic [WidePseudoBanks-1:0]                                        narrow_rvalid_routed_spill;
   logic [WidePseudoBanks-1:0]               [   NarrowDataWidth-1:0] narrow_rdata_routed_spill;
 
   logic [   NumWideBanks-1:0]                                        wide_req_routed;
@@ -185,7 +183,6 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         we_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] wdata_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] strb_bank;
-  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank;
 
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         req_bank_spill;
@@ -193,7 +190,6 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         we_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] wdata_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] strb_bank_spill;
-  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         rvalid_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank_spill;
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_entry_cuts
