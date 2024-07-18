@@ -578,6 +578,7 @@ module axi_memory_island_tb #(
 
     .SpillReqBank         ( 0               ),
     .SpillRspBank         ( 0               ),
+    .WidePriorityWait     ( 3               ),
 
     .NumWideBanks         ( NumWideBanks    ),
     .NarrowExtraBF        ( NarrowExtraBF   ),
