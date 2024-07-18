@@ -42,6 +42,9 @@ module memory_island_core #(
 
   parameter              MemorySimInit        = "none",
 
+  /// Relinquish narrow priority after x cycles, 0 for never. Requires SpillNarrowReqRouted==0.
+  parameter int unsigned WidePriorityWait     = 0,
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth      = NarrowDataWidth/8,
   parameter int unsigned WideStrbWidth        = WideDataWidth/8,
@@ -70,6 +73,11 @@ module memory_island_core #(
   output logic [  NumWideReq-1:0]                      wide_rvalid_o,
   output logic [  NumWideReq-1:0][  WideDataWidth-1:0] wide_rdata_o
 );
+
+  initial begin
+    // WidePriorityWait requires no narrow request spill after interco for fixed latency!
+    assert (WidePriorityWait == 0 || SpillNarrowReqRouted == 0);
+  end
 
   localparam int unsigned WidePseudoBanks = NWDivisor * NarrowExtraBF;
   localparam int unsigned TotalBanks = NWDivisor * NumWideBanks;
@@ -154,6 +162,7 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0]               [     WideDataWidth-1:0] wide_rdata_routed_spill;
 
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         narrow_req_bank;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0]                         narrow_gnt_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][  BankAddrMemWidth-1:0] narrow_addr_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0]                         narrow_we_bank;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] narrow_wdata_bank;
@@ -191,6 +200,9 @@ module memory_island_core #(
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] wdata_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowStrbWidth-1:0] strb_bank_spill;
   logic [   NumWideBanks-1:0][NWDivisor-1:0][   NarrowDataWidth-1:0] rdata_bank_spill;
+
+  logic [   NumWideBanks-1:0][NWDivisor-1:0]                                               narrow_priority_req;
+  logic [   NumWideBanks-1:0][NWDivisor-1:0][cf_math_pkg::idx_width(WidePriorityWait)-1:0] wide_priority_d, wide_priority_q;
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_entry_cuts
     mem_req_multicut #(
@@ -347,10 +359,25 @@ module memory_island_core #(
     );
   end
 
-  // narrow gnt always set
-  assign narrow_gnt_routed_spill = '1;
-
   localparam int unsigned NarrowWideBankSelWidth = AddrWideBankBit-AddrNarrowWideBit;
+
+  if (WidePriorityWait == 0) begin : gen_narrow_static_gnt
+    // narrow gnt always set
+    assign narrow_gnt_routed_spill = '1;
+  end else begin : gen_narrow_gnt
+    for (genvar j = 0; j < NarrowExtraBF; j++) begin : gen_narrow_gnt_l1
+      for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_gnt_l2
+        always_comb begin
+          narrow_gnt_routed_spill[(j*NWDivisor) + k] = '0;
+          for (int i = 0; i < TotalBanks/WidePseudoBanks; i++) begin
+            if (narrow_addr_routed_spill [(j*NWDivisor) + k][NarrowWideBankSelWidth-1:0] == i) begin
+              narrow_gnt_routed_spill[(j*NWDivisor) + k] = narrow_gnt_bank [(i*NarrowExtraBF)+j][k];
+            end
+          end
+        end
+      end
+    end
+  end
 
   // Route narrow requests to the correct bank, only requesting from the necessary banks
   for (genvar i = 0; i < TotalBanks/WidePseudoBanks; i++) begin : gen_narrow_routed_bank_l1
@@ -538,16 +565,40 @@ module memory_island_core #(
         .rdata_o  ( wide_rdata_bank       [i][j] )
       );
 
+      if (WidePriorityWait == 0) begin : gen_narrow_priority
+        // narrow always has priority
+        assign narrow_priority_req[i][j] = narrow_req_bank[i][j];
+        assign wide_priority_d    [i][j] = '0;
+      end else begin : gen_priority
+        always_comb begin
+          // by default reset
+          wide_priority_d      [i][j] = '0;
+          // by default narrow priority
+          narrow_priority_req  [i][j] = narrow_req_bank[i][j];
 
-      // narrow/wide arbitration, narrow always has priority
-      assign req_bank             [i][j] =  narrow_req_bank[i][j] | wide_req_bank_spill[i][j];
-      assign wide_gnt_bank_spill  [i][j] = ~narrow_req_bank[i][j];
-      assign we_bank              [i][j] =  narrow_req_bank[i][j] ? narrow_we_bank   [i][j] : wide_we_bank_spill   [i][j];
-      assign addr_bank            [i][j] =  narrow_req_bank[i][j] ? narrow_addr_bank [i][j] : wide_addr_bank_spill [i][j];
-      assign wdata_bank           [i][j] =  narrow_req_bank[i][j] ? narrow_wdata_bank[i][j] : wide_wdata_bank_spill[i][j];
-      assign strb_bank            [i][j] =  narrow_req_bank[i][j] ? narrow_strb_bank [i][j] : wide_strb_bank_spill [i][j];
-      assign narrow_rdata_bank    [i][j] =  rdata_bank     [i][j];
-      assign wide_rdata_bank_spill[i][j] =  rdata_bank     [i][j];
+          // if both are requesting, increment counter
+          if (narrow_req_bank  [i][j] && wide_req_bank_spill[i][j]) begin
+            wide_priority_d    [i][j] = wide_priority_q[i][j] + 1;
+          end
+
+          // if counter has reached max, give wide priority
+          if (wide_priority_q  [i][j] == WidePriorityWait) begin
+            wide_priority_d    [i][j] = '0;
+            narrow_priority_req[i][j] = '0;
+          end
+        end
+      end
+
+      // narrow/wide priority arbitration
+      assign req_bank             [i][j] =  narrow_req_bank    [i][j] | wide_req_bank_spill[i][j];
+      assign narrow_gnt_bank      [i][j] =  narrow_priority_req[i][j];
+      assign wide_gnt_bank_spill  [i][j] = ~narrow_priority_req[i][j];
+      assign we_bank              [i][j] =  narrow_priority_req[i][j] ? narrow_we_bank   [i][j] : wide_we_bank_spill   [i][j];
+      assign addr_bank            [i][j] =  narrow_priority_req[i][j] ? narrow_addr_bank [i][j] : wide_addr_bank_spill [i][j];
+      assign wdata_bank           [i][j] =  narrow_priority_req[i][j] ? narrow_wdata_bank[i][j] : wide_wdata_bank_spill[i][j];
+      assign strb_bank            [i][j] =  narrow_priority_req[i][j] ? narrow_strb_bank [i][j] : wide_strb_bank_spill [i][j];
+      assign narrow_rdata_bank    [i][j] =  rdata_bank         [i][j];
+      assign wide_rdata_bank_spill[i][j] =  rdata_bank         [i][j];
 
       mem_req_multicut #(
         .DataWidth ( NarrowDataWidth  ),
@@ -625,6 +676,14 @@ module memory_island_core #(
           shift_rvalid_q <= shift_rvalid_d;
         end
       end
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_wide_priority
+    if(!rst_ni) begin
+      wide_priority_q <= '0;
+    end else begin
+      wide_priority_q <= wide_priority_d;
     end
   end
 
