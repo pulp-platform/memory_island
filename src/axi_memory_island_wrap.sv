@@ -75,23 +75,26 @@ module axi_memory_island_wrap #(
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
   localparam int unsigned WideStrbWidth   = WideDataWidth/8;
 
-  logic [2*NumNarrowReq-1:0]                      narrow_req;
-  logic [2*NumNarrowReq-1:0]                      narrow_gnt;
-  logic [2*NumNarrowReq-1:0][      AddrWidth-1:0] narrow_addr;
-  logic [2*NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_wdata;
-  logic [2*NumNarrowReq-1:0][NarrowStrbWidth-1:0] narrow_strb;
-  logic [2*NumNarrowReq-1:0]                      narrow_we;
-  logic [2*NumNarrowReq-1:0]                      narrow_rvalid;
-  logic [2*NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_rdata;
+  localparam int unsigned InternalNumNarrow = 2*NumNarrowReq;
+  localparam int unsigned InternalNumWide   = 2*NumWideReq+(EnableDMA ? 2 : 0);
 
-  logic [  2*NumWideReq-1:0]                      wide_req;
-  logic [  2*NumWideReq-1:0]                      wide_gnt;
-  logic [  2*NumWideReq-1:0][      AddrWidth-1:0] wide_addr;
-  logic [  2*NumWideReq-1:0][  WideDataWidth-1:0] wide_wdata;
-  logic [  2*NumWideReq-1:0][  WideStrbWidth-1:0] wide_strb;
-  logic [  2*NumWideReq-1:0]                      wide_we;
-  logic [  2*NumWideReq-1:0]                      wide_rvalid;
-  logic [  2*NumWideReq-1:0][  WideDataWidth-1:0] wide_rdata;
+  logic [InternalNumNarrow-1:0]                      narrow_req;
+  logic [InternalNumNarrow-1:0]                      narrow_gnt;
+  logic [InternalNumNarrow-1:0][      AddrWidth-1:0] narrow_addr;
+  logic [InternalNumNarrow-1:0][NarrowDataWidth-1:0] narrow_wdata;
+  logic [InternalNumNarrow-1:0][NarrowStrbWidth-1:0] narrow_strb;
+  logic [InternalNumNarrow-1:0]                      narrow_we;
+  logic [InternalNumNarrow-1:0]                      narrow_rvalid;
+  logic [InternalNumNarrow-1:0][NarrowDataWidth-1:0] narrow_rdata;
+
+  logic [  InternalNumWide-1:0]                      wide_req;
+  logic [  InternalNumWide-1:0]                      wide_gnt;
+  logic [  InternalNumWide-1:0][      AddrWidth-1:0] wide_addr;
+  logic [  InternalNumWide-1:0][  WideDataWidth-1:0] wide_wdata;
+  logic [  InternalNumWide-1:0][  WideStrbWidth-1:0] wide_strb;
+  logic [  InternalNumWide-1:0]                      wide_we;
+  logic [  InternalNumWide-1:0]                      wide_rvalid;
+  logic [  InternalNumWide-1:0][  WideDataWidth-1:0] wide_rdata;
 
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_conv
@@ -155,7 +158,30 @@ module axi_memory_island_wrap #(
   end
 
   if (EnableDMA) begin : gen_dma
+    memory_island_dma #(
+      .reg_req_t      ( dma_reg_req_t   ),
+      .reg_rsp_t      ( dma_reg_rsp_t   ),
+      .AddrWidth      ( AddrWidth       ),
+      .NarrowDataWidth( NarrowDataWidth ),
+      .WideDataWidth  ( WideDataWidth   )
+    ) i_dma (
+      .clk_i,
+      .rst_ni,
 
+      .test_mode_i  ( '0 ),
+
+      .reg_req_i    ( dma_reg_req_i ),
+      .reg_rsp_o    ( dma_reg_rsp_o ),
+
+      .wide_req_o   ( wide_req    [InternalNumWide-:2] ),
+      .wide_gnt_i   ( wide_gnt    [InternalNumWide-:2] ),
+      .wide_addr_o  ( wide_addr   [InternalNumWide-:2] ),
+      .wide_we_o    ( wide_we     [InternalNumWide-:2] ),
+      .wide_wdata_o ( wide_wdata  [InternalNumWide-:2] ),
+      .wide_strb_o  ( wide_strb   [InternalNumWide-:2] ),
+      .wide_rvalid_i( wide_rvalid [InternalNumWide-:2] ),
+      .wide_rdata_i ( wide_rdata  [InternalNumWide-:2] )
+    );
   end else begin : gen_dma_error_slv
     if ($bits(dma_reg_rsp_t) > 1) begin : gen_actual_err_slv
       reg_err_slv #(
@@ -177,8 +203,8 @@ module axi_memory_island_wrap #(
     .AddrWidth            ( AddrWidth            ),
     .NarrowDataWidth      ( NarrowDataWidth      ),
     .WideDataWidth        ( WideDataWidth        ),
-    .NumNarrowReq         ( 2*NumNarrowReq       ),
-    .NumWideReq           ( 2*NumWideReq         ),
+    .NumNarrowReq         ( InternalNumNarrow    ),
+    .NumWideReq           ( InternalNumWide      ),
     .NumWideBanks         ( NumWideBanks         ),
     .NarrowExtraBF        ( NarrowExtraBF        ),
     .WordsPerBank         ( WordsPerBank         ),
