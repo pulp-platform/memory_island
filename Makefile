@@ -31,7 +31,7 @@ dma-gen: src/dma/memory_island_dma_generated.sv
 VSIM ?= vsim
 
 scripts/compile.tcl: Bender.yml Bender.lock
-	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
+	$(BENDER) script vsim -t test -t rtl --vlog-arg="-svinputport=compat" > $@
 	echo "return 0" >> $@
 
 .PHONY: test-vsim

@@ -82,7 +82,7 @@ module axi_memory_island_wrap #(
   localparam int unsigned WideStrbWidth   = WideDataWidth/8;
 
   localparam int unsigned InternalNumNarrow = NumNarrowReq + $countones(NarrowRW);
-  localparam int unsigned InternalNumWide   = NumWideReq   + $countones(WideRW);
+  localparam int unsigned InternalNumWide   = NumWideReq   + $countones(WideRW) + (EnableDMA ? 2 : 0);
 
   localparam int unsigned NarrowMemRspLatency = SpillNarrowReqEntry +
                                                 SpillNarrowReqRouted +
@@ -241,7 +241,30 @@ module axi_memory_island_wrap #(
   end
 
   if (EnableDMA) begin : gen_dma
+    memory_island_dma #(
+      .reg_req_t      ( dma_reg_req_t   ),
+      .reg_rsp_t      ( dma_reg_rsp_t   ),
+      .AddrWidth      ( AddrWidth       ),
+      .NarrowDataWidth( NarrowDataWidth ),
+      .WideDataWidth  ( WideDataWidth   )
+    ) i_dma (
+      .clk_i,
+      .rst_ni,
 
+      .test_mode_i  ( '0 ),
+
+      .reg_req_i    ( dma_reg_req_i ),
+      .reg_rsp_o    ( dma_reg_rsp_o ),
+
+      .wide_req_o   ( wide_req    [InternalNumWide-:2] ),
+      .wide_gnt_i   ( wide_gnt    [InternalNumWide-:2] ),
+      .wide_addr_o  ( wide_addr   [InternalNumWide-:2] ),
+      .wide_we_o    ( wide_we     [InternalNumWide-:2] ),
+      .wide_wdata_o ( wide_wdata  [InternalNumWide-:2] ),
+      .wide_strb_o  ( wide_strb   [InternalNumWide-:2] ),
+      .wide_rvalid_i( wide_rvalid [InternalNumWide-:2] ),
+      .wide_rdata_i ( wide_rdata  [InternalNumWide-:2] )
+    );
   end else begin : gen_dma_error_slv
     if ($bits(dma_reg_rsp_t) > 1) begin : gen_actual_err_slv
       reg_err_slv #(
@@ -263,8 +286,8 @@ module axi_memory_island_wrap #(
     .AddrWidth            ( AddrWidth            ),
     .NarrowDataWidth      ( NarrowDataWidth      ),
     .WideDataWidth        ( WideDataWidth        ),
-    .NumNarrowReq         ( 2*NumNarrowReq       ),
-    .NumWideReq           ( 2*NumWideReq         ),
+    .NumNarrowReq         ( InternalNumNarrow    ),
+    .NumWideReq           ( InternalNumWide      ),
     .NumWideBanks         ( NumWideBanks         ),
     .NarrowExtraBF        ( NarrowExtraBF        ),
     .WordsPerBank         ( WordsPerBank         ),
