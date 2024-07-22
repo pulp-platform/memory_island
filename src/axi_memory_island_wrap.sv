@@ -74,6 +74,23 @@ module axi_memory_island_wrap #(
   localparam int unsigned InternalNumNarrow = NumNarrowReq + $countones(NarrowRW);
   localparam int unsigned InternalNumWide   = NumWideReq   + $countones(WideRW);
 
+  localparam int unsigned NarrowMemRspLatency = SpillNarrowReqEntry +
+                                                SpillNarrowReqRouted +
+                                                SpillReqBank +
+                                                SpillRspBank +
+                                                SpillNarrowRspRouted +
+                                                SpillNarrowRspEntry +
+                                                1;
+  localparam int unsigned  WideMemRspLatency = SpillWideReqEntry +
+                                               SpillWideReqRouted +
+                                               SpillWideReqSplit +
+                                               SpillReqBank +
+                                               SpillRspBank +
+                                               SpillWideRspSplit +
+                                               SpillWideRspRouted +
+                                               SpillWideRspEntry +
+                                               1;
+
   logic [InternalNumNarrow-1:0]                      narrow_req;
   logic [InternalNumNarrow-1:0]                      narrow_gnt;
   logic [InternalNumNarrow-1:0][      AddrWidth-1:0] narrow_addr;
@@ -97,15 +114,15 @@ module axi_memory_island_wrap #(
     localparam int unsigned Id = i + $countones(NarrowRW[i:0]);
     if (NarrowRW[i]) begin : gen_split_conv
       axi_to_mem_split #(
-        .axi_req_t    ( axi_narrow_req_t ),
-        .axi_resp_t   ( axi_narrow_rsp_t ),
-        .AddrWidth    ( AddrWidth        ),
-        .AxiDataWidth ( NarrowDataWidth  ),
-        .IdWidth      ( AxiNarrowIdWidth ),
-        .MemDataWidth ( NarrowDataWidth  ),
-        .BufDepth     ( 2                ),
-        .HideStrb     ( 1'b0             ),
-        .OutFifoDepth ( 1                )
+        .axi_req_t    ( axi_narrow_req_t        ),
+        .axi_resp_t   ( axi_narrow_rsp_t        ),
+        .AddrWidth    ( AddrWidth               ),
+        .AxiDataWidth ( NarrowDataWidth         ),
+        .IdWidth      ( AxiNarrowIdWidth        ),
+        .MemDataWidth ( NarrowDataWidth         ),
+        .BufDepth     ( 1 + NarrowMemRspLatency ),
+        .HideStrb     ( 1'b0                    ),
+        .OutFifoDepth ( 1                       )
       ) i_narrow_conv (
         .clk_i,
         .rst_ni,
@@ -125,15 +142,15 @@ module axi_memory_island_wrap #(
       );
     end else begin : gen_single_conv
       axi_to_mem #(
-        .axi_req_t    ( axi_narrow_req_t ),
-        .axi_resp_t   ( axi_narrow_rsp_t ),
-        .AddrWidth    ( AddrWidth        ),
-        .AxiDataWidth ( NarrowDataWidth  ),
-        .IdWidth      ( AxiNarrowIdWidth ),
-        .NumBanks     ( 1              ),
-        .BufDepth     ( 2              ),
-        .HideStrb     ( 1'b0           ),
-        .OutFifoDepth ( 1              )
+        .axi_req_t    ( axi_narrow_req_t        ),
+        .axi_resp_t   ( axi_narrow_rsp_t        ),
+        .AddrWidth    ( AddrWidth               ),
+        .AxiDataWidth ( NarrowDataWidth         ),
+        .IdWidth      ( AxiNarrowIdWidth        ),
+        .NumBanks     ( 1                       ),
+        .BufDepth     ( 1 + NarrowMemRspLatency ),
+        .HideStrb     ( 1'b0                    ),
+        .OutFifoDepth ( 1                       )
       ) i_narrow_conv (
         .clk_i,
         .rst_ni,
@@ -157,19 +174,19 @@ module axi_memory_island_wrap #(
     localparam int unsigned Id = i + $countones(WideRW[i:0]);
     if (WideRW[i]) begin : gen_split_conv
       axi_to_mem_split #(
-        .axi_req_t    ( axi_wide_req_t ),
-        .axi_resp_t   ( axi_wide_rsp_t ),
-        .AddrWidth    ( AddrWidth      ),
-        .AxiDataWidth ( WideDataWidth  ),
-        .IdWidth      ( AxiWideIdWidth ),
-        .MemDataWidth ( WideDataWidth  ),
-        .BufDepth     ( 2              ),
-        .HideStrb     ( 1'b0           ),
-        .OutFifoDepth ( 1              )
+        .axi_req_t    ( axi_wide_req_t        ),
+        .axi_resp_t   ( axi_wide_rsp_t        ),
+        .AddrWidth    ( AddrWidth             ),
+        .AxiDataWidth ( WideDataWidth         ),
+        .IdWidth      ( AxiWideIdWidth        ),
+        .MemDataWidth ( WideDataWidth         ),
+        .BufDepth     ( 1 + WideMemRspLatency ),
+        .HideStrb     ( 1'b0                  ),
+        .OutFifoDepth ( 1                     )
       ) i_wide_conv (
         .clk_i,
         .rst_ni,
-        .test_i       ( '0                     ),
+        .test_i       ( '0                    ),
         .busy_o       (),
         .axi_req_i    ( axi_wide_req_i[i    ] ),
         .axi_resp_o   ( axi_wide_rsp_o[i    ] ),
@@ -185,15 +202,15 @@ module axi_memory_island_wrap #(
       );
     end else begin : gen_single_conv
       axi_to_mem #(
-        .axi_req_t    ( axi_wide_req_t ),
-        .axi_resp_t   ( axi_wide_rsp_t ),
-        .AddrWidth    ( AddrWidth      ),
-        .AxiDataWidth ( WideDataWidth  ),
-        .IdWidth      ( AxiWideIdWidth ),
-        .NumBanks     ( 1              ),
-        .BufDepth     ( 2              ),
-        .HideStrb     ( 1'b0           ),
-        .OutFifoDepth ( 1              )
+        .axi_req_t    ( axi_wide_req_t        ),
+        .axi_resp_t   ( axi_wide_rsp_t        ),
+        .AddrWidth    ( AddrWidth             ),
+        .AxiDataWidth ( WideDataWidth         ),
+        .IdWidth      ( AxiWideIdWidth        ),
+        .NumBanks     ( 1                     ),
+        .BufDepth     ( 1 + WideMemRspLatency ),
+        .HideStrb     ( 1'b0                  ),
+        .OutFifoDepth ( 1                     )
       ) i_wide_conv (
         .clk_i,
         .rst_ni,
