@@ -4,7 +4,15 @@
 
 # Michael Rogenmoser <michaero@iis.ee.ethz.ch>
 
-BENDER ?= bender
+BENDER ?= bender -d $(CURDIR)
 
-scripts/compile.tcl:
-	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > scripts/compile.tcl
+VSIM ?= vsim
+
+scripts/compile.tcl: Bender.yml Bender.lock
+	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
+	echo "return 0" >> $@
+
+.PHONY: test-vsim
+test-vsim: scripts/compile.tcl
+	$(VSIM) -64 -c -do "quit -code [source scripts/compile.tcl]"
+	$(VSIM) -64 -do "vsim axi_memory_island_tb -voptargs=+acc; do scripts/debug_wave.do"
