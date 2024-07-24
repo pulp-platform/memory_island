@@ -44,10 +44,10 @@ add wave -noupdate -group top_tb /axi_memory_island_tb/live_write_overlapping_re
 add wave -noupdate -group top_tb /axi_memory_island_tb/live_read_overlapping_write
 add wave -noupdate -group top_tb /axi_memory_island_tb/golden_all_req
 add wave -noupdate -group top_tb /axi_memory_island_tb/golden_all_rsp
-add wave -noupdate -group compare0 {/axi_memory_island_tb/gen_narrow_stim[0]/i_narrow_compare/i_axi_bus_compare/*}
-add wave -noupdate -group compare1 {/axi_memory_island_tb/gen_narrow_stim[1]/i_narrow_compare/i_axi_bus_compare/*}
-add wave -noupdate -group compare2 {/axi_memory_island_tb/gen_narrow_stim[2]/i_narrow_compare/i_axi_bus_compare/*}
-add wave -noupdate -group compare3 {/axi_memory_island_tb/gen_narrow_stim[3]/i_narrow_compare/i_axi_bus_compare/*}
-add wave -noupdate -group compare4_w {/axi_memory_island_tb/gen_wide_stim[0]/i_wide_compare/i_axi_bus_compare/*}
-add wave -noupdate -group compare5_w {/axi_memory_island_tb/gen_wide_stim[1]/i_wide_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare0 {/axi_memory_island_tb/gen_narrow_check[0]/i_narrow_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare1 {/axi_memory_island_tb/gen_narrow_check[1]/i_narrow_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare2 {/axi_memory_island_tb/gen_narrow_check[2]/i_narrow_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare3 {/axi_memory_island_tb/gen_narrow_check[3]/i_narrow_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare4_w {/axi_memory_island_tb/gen_wide_check[0]/i_wide_compare/i_axi_bus_compare/*}
+add wave -noupdate -group compare5_w {/axi_memory_island_tb/gen_wide_check[1]/i_wide_compare/i_axi_bus_compare/*}
 add wave -noupdate -group memory_island /axi_memory_island_tb/i_dut/i_memory_island/*

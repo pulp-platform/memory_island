@@ -223,7 +223,9 @@ module axi_memory_island_tb #(
       narrow_rand_master[i].run(TbNumReads, TbNumWrites);
       end_of_sim[i] <= 1'b1;
     end
+  end
 
+  for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_limiting
     // Log address ranges of the requests
     assign write_range[i].start_addr = axi_narrow_req[i].aw.addr;
     assign write_range[i].end_addr   = axi_narrow_req[i].aw.addr + ((2**axi_narrow_req[i].aw.size)*(axi_narrow_req[i].aw.len+1));
@@ -260,23 +262,23 @@ module axi_memory_island_tb #(
       end
     end
 
-    for (genvar j = 0; j < TotalReq; j++) begin
-      for (genvar k = 0; k < 2**AxiIdWidth; k++) begin
-        for (genvar l = 0; l < TxInFlight; l++) begin
+    for (genvar requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
+      for (genvar axiIdx = 0; axiIdx < 2**AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
+        for (genvar txIdx = 0; txIdx < TxInFlight; txIdx++) begin : gen_overlap_check_txns
           // Block write if overlapping region is already being written
-          assign write_overlapping_write[i][j][k][l] = l < write_len[j][k] ?
-                                check_overlap(write_range[i], regions_being_written[j][k][l]) : '0;
+          assign write_overlapping_write[i][requestIdx][axiIdx][txIdx] = txIdx < write_len[requestIdx][axiIdx] ?
+                                check_overlap(write_range[i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
           // Block reads if overlapping region is already being written
-          assign read_overlapping_write[i][j][k][l]  = l < write_len[j][k] ?
-                                check_overlap(read_range[i], regions_being_written[j][k][l]) : '0;
+          assign read_overlapping_write[i][requestIdx][axiIdx][txIdx]  = txIdx < write_len[requestIdx][axiIdx] ?
+                                check_overlap(read_range[i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
           // Block write if overlapping region is already being read
-          assign write_overlapping_read[i][j][k][l]  = l < read_len[j][k] ?
-                                check_overlap(write_range[i], regions_being_read[j][k][l]) : '0;
+          assign write_overlapping_read[i][requestIdx][axiIdx][txIdx]  = txIdx < read_len[requestIdx][axiIdx] ?
+                                check_overlap(write_range[i], regions_being_read[requestIdx][axiIdx][txIdx]) : '0;
         end
       end
-      assign live_write_overlapping_write[i][j] = check_overlap(write_range[i], write_range[j]);
-      assign live_write_overlapping_read[i][j]  = check_overlap(write_range[i], read_range[j]);
-      assign live_read_overlapping_write[i][j]  = check_overlap(read_range[i], write_range[j]);
+      assign live_write_overlapping_write[i][requestIdx] = check_overlap(write_range[i], write_range[requestIdx]);
+      assign live_write_overlapping_read[i][requestIdx]  = check_overlap(write_range[i], read_range[requestIdx]);
+      assign live_read_overlapping_write[i][requestIdx]  = check_overlap(read_range[i], write_range[requestIdx]);
     end
 
     always_comb begin : proc_filter_narrow
@@ -324,7 +326,9 @@ module axi_memory_island_tb #(
         end
       end
     end
+  end
 
+  for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_check
     // Cut for TB logic loop
     axi_cut #(
       .aw_chan_t ( narrow_aw_chan_t ),
@@ -396,7 +400,9 @@ module axi_memory_island_tb #(
       wide_rand_master[i].run(TbNumReads, TbNumWrites);
       end_of_sim[NumNarrowReq+i] <= 1'b1;
     end
+  end
 
+  for (genvar i = 0; i < NumWideReq; i++) begin : gen_wide_limiting
     // Log address ranges of the requests
     assign write_range[NumNarrowReq+i].start_addr = axi_wide_req[i].aw.addr;
     assign write_range[NumNarrowReq+i].end_addr   = axi_wide_req[i].aw.addr + ((2**axi_wide_req[i].aw.size)*(axi_wide_req[i].aw.len+1));
@@ -426,23 +432,23 @@ module axi_memory_island_tb #(
       end
     end
 
-    for (genvar j = 0; j < TotalReq; j++) begin
-      for (genvar k = 0; k < 2**AxiIdWidth; k++) begin
-        for (genvar l = 0; l < TxInFlight; l++) begin
+    for (genvar requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
+      for (genvar axiIdx = 0; axiIdx < 2**AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
+        for (genvar txIdx = 0; txIdx < TxInFlight; txIdx++) begin  : gen_overlap_check_txns
           // Block write if overlapping region is already being written
-          assign write_overlapping_write[NumNarrowReq+i][j][k][l] = l < write_len[j][k] ?
-                                check_overlap(write_range[NumNarrowReq+i], regions_being_written[j][k][l]) : '0;
+          assign write_overlapping_write[NumNarrowReq+i][requestIdx][axiIdx][txIdx] = txIdx < write_len[requestIdx][axiIdx] ?
+                                check_overlap(write_range[NumNarrowReq+i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
           // Block reads if overlapping region is already being written
-          assign read_overlapping_write[NumNarrowReq+i][j][k][l]  = l < write_len[j][k] ?
-                                check_overlap(read_range[NumNarrowReq+i], regions_being_written[j][k][l]) : '0;
+          assign read_overlapping_write[NumNarrowReq+i][requestIdx][axiIdx][txIdx]  = txIdx < write_len[requestIdx][axiIdx] ?
+                                check_overlap(read_range[NumNarrowReq+i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
           // Block write if overlapping region is already being read
-          assign write_overlapping_read[NumNarrowReq+i][j][k][l]  = l < read_len[j][k] ?
-                                check_overlap(write_range[NumNarrowReq+i], regions_being_read[j][k][l]) : '0;
+          assign write_overlapping_read[NumNarrowReq+i][requestIdx][axiIdx][txIdx]  = txIdx < read_len[requestIdx][axiIdx] ?
+                                check_overlap(write_range[NumNarrowReq+i], regions_being_read[requestIdx][axiIdx][txIdx]) : '0;
         end
       end
-      assign live_write_overlapping_write[NumNarrowReq+i][j] = check_overlap(write_range[NumNarrowReq+i], write_range[j]);
-      assign live_write_overlapping_read[NumNarrowReq+i][j]  = check_overlap(write_range[NumNarrowReq+i], read_range[j]);
-      assign live_read_overlapping_write[NumNarrowReq+i][j]  = check_overlap(read_range[NumNarrowReq+i], write_range[j]);
+      assign live_write_overlapping_write[NumNarrowReq+i][requestIdx] = check_overlap(write_range[NumNarrowReq+i], write_range[requestIdx]);
+      assign live_write_overlapping_read[NumNarrowReq+i][requestIdx]  = check_overlap(write_range[NumNarrowReq+i], read_range[requestIdx]);
+      assign live_read_overlapping_write[NumNarrowReq+i][requestIdx]  = check_overlap(read_range[NumNarrowReq+i], write_range[requestIdx]);
     end
 
     always_comb begin : proc_filter_wide
@@ -490,7 +496,9 @@ module axi_memory_island_tb #(
         end
       end
     end
+  end
 
+  for (genvar i = 0; i < NumWideReq; i++) begin : gen_wide_check
     // Cut for TB logic loop
     axi_cut #(
       .aw_chan_t ( wide_aw_chan_t ),
