@@ -83,6 +83,7 @@ module memory_island_core #(
   //
   //                 <---------------------->                         NarrowAddrMemWidth
   //                 <----------->                                    BankAddrMemWidth
+  //                              <--------->                         NarrowWideBankSelWidth
   //
   // Wide   interco: AddrWideBankBit   -> AddrWideWordBit   for routing
   // Narrow interco: AddrNarrowWideBit -> AddrNarrowWordBit for routing
@@ -336,7 +337,7 @@ module memory_island_core #(
     mem_rsp_multicut #(
       .DataWidth ( NarrowDataWidth      ),
       .NumCuts   ( SpillNarrowRspRouted )
-    ) i_spill_narrow_rsq_routed (
+    ) i_spill_narrow_rsp_routed (
       .clk_i,
       .rst_ni,
 
@@ -355,6 +356,7 @@ module memory_island_core #(
 
   localparam int unsigned NarrowWideBankSelWidth = AddrWideBankBit-AddrNarrowWideBit;
 
+  // Route narrow requests to the correct bank, only requesting from the necessary banks
   for (genvar i = 0; i < TotalBanks/WidePseudoBanks; i++) begin : gen_narrow_routed_bank_l1
     for (genvar j = 0; j < NarrowExtraBF; j++) begin : gen_narrow_routed_bank_l2
       for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_routed_bank_l3
@@ -368,6 +370,7 @@ module memory_island_core #(
     end
   end
 
+  // Shift registers to properly select response data
   for (genvar j = 0; j < NarrowExtraBF; j++) begin : gen_narrow_routed_bank_rdata_l1
     for (genvar k = 0; k < NWDivisor; k++) begin : gen_narrow_routed_bank_rdata_l2
       logic [NarrowWideBankSelWidth-1:0] narrow_rdata_sel;
