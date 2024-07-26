@@ -18,6 +18,8 @@ module memory_island_dma #(
   parameter int unsigned NarrowDataWidth      = 0,
   /// Data Width for the Wide Ports
   parameter int unsigned WideDataWidth        = 0,
+  /// Latency of downstream memory for
+  parameter int unsigned MemoryLatency        = 2,
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth      = NarrowDataWidth/8,
   parameter int unsigned WideStrbWidth        = WideDataWidth/8
@@ -177,10 +179,10 @@ module memory_island_dma #(
     .AddrWidth           ( AddrWidth ),
     .UserWidth           ( 1 ), // unused internally, needs >0
     .AxiIdWidth          ( 1 ),
-    .NumAxInFlight       ( 3 ),
+    .NumAxInFlight       ( MemoryLatency ),
     .BufferDepth         ( 3 ),
     .TFLenWidth          ( TFLenWidth ),
-    .MemSysDepth         ( 3 ),
+    .MemSysDepth         ( MemoryLatency + 2 ),
     .CombinedShifter     ( 1'b0 ),
     .RAWCouplingAvail    ( 1'b0 ),
     .MaskInvalidData     ( 1'b1 ),
@@ -252,10 +254,10 @@ module memory_island_dma #(
     );
 
     obi_rready_converter #(
-      .obi_a_chan_t( obi_a_chan_t ),
-      .obi_r_chan_t( obi_r_chan_t ),
-      .Depth       ( 2            ),
-      .CombRspReq  ( 1'b1         )
+      .obi_a_chan_t( obi_a_chan_t  ),
+      .obi_r_chan_t( obi_r_chan_t  ),
+      .Depth       ( MemoryLatency ),
+      .CombRspReq  ( 1'b1          )
     ) i_obi_rready_converter (
       .clk_i,
       .rst_ni,

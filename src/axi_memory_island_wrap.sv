@@ -246,7 +246,10 @@ module axi_memory_island_wrap #(
       .reg_rsp_t      ( dma_reg_rsp_t   ),
       .AddrWidth      ( AddrWidth       ),
       .NarrowDataWidth( NarrowDataWidth ),
-      .WideDataWidth  ( WideDataWidth   )
+      .WideDataWidth  ( WideDataWidth   ),
+      .MemoryLatency  ( SpillWideReqEntry + SpillWideReqRouted + SpillWideReqSplit +
+                        SpillWideRspSplit + SpillWideRspRouted + SpillWideRspEntry +
+                        SpillReqBank + SpillRspBank + 1 )
     ) i_dma (
       .clk_i,
       .rst_ni,
