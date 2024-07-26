@@ -99,8 +99,8 @@ module memory_island_dma #(
 
   logic [31:0] next_id, completed_id;
 
-  internal_obi_req_t [1:0] internal_obi_req;
-  internal_obi_rsp_t [1:0] internal_obi_rsp;
+  internal_obi_req_t [1:0] internal_obi_req, internal_obi_req_spill;
+  internal_obi_rsp_t [1:0] internal_obi_rsp, internal_obi_rsp_spill;
 
   obi_a_chan_t [1:0] filtered_obi_a;
   obi_r_chan_t [1:0] filtered_obi_r;
@@ -182,7 +182,7 @@ module memory_island_dma #(
     .TFLenWidth          ( TFLenWidth ),
     .MemSysDepth         ( 3 ),
     .CombinedShifter     ( 1'b0 ),
-    .RAWCouplingAvail    ( 1'b1 ),
+    .RAWCouplingAvail    ( 1'b0 ),
     .MaskInvalidData     ( 1'b1 ),
     .HardwareLegalizer   ( 1'b1 ),
     .RejectZeroTransfers ( 1'b1 ),
@@ -223,6 +223,34 @@ module memory_island_dma #(
   );
 
   for (genvar i = 0; i < 2; i++) begin : gen_rready_convert
+    spill_register #(
+      .T (obi_a_chan_t ),
+      .Bypass ( '0 )
+    ) i_spill_a (
+      .clk_i,
+      .rst_ni,
+      .valid_i (internal_obi_req[i].req),
+      .ready_o (internal_obi_rsp[i].gnt),
+      .data_i  (internal_obi_req[i].a),
+      .valid_o (internal_obi_req_spill[i].req),
+      .ready_i (internal_obi_rsp_spill[i].gnt),
+      .data_o  (internal_obi_req_spill[i].a)
+    );
+
+    spill_register #(
+      .T (obi_r_chan_t ),
+      .Bypass ( '0 )
+    ) i_spill_r (
+      .clk_i,
+      .rst_ni,
+      .valid_i (internal_obi_rsp_spill[i].rvalid),
+      .ready_o (internal_obi_req_spill[i].rready),
+      .data_i  (internal_obi_rsp_spill[i].r),
+      .valid_o (internal_obi_rsp[i].rvalid),
+      .ready_i (internal_obi_req[i].rready),
+      .data_o  (internal_obi_rsp[i].r)
+    );
+
     obi_rready_converter #(
       .obi_a_chan_t( obi_a_chan_t ),
       .obi_r_chan_t( obi_r_chan_t ),
@@ -233,18 +261,18 @@ module memory_island_dma #(
       .rst_ni,
       .test_mode_i,
 
-      .sbr_a_chan_i( internal_obi_req[i].a      ),
-      .req_i       ( internal_obi_req[i].req    ),
-      .gnt_o       ( internal_obi_rsp[i].gnt    ),
-      .sbr_r_chan_o( internal_obi_rsp[i].r      ),
-      .rvalid_o    ( internal_obi_rsp[i].rvalid ),
-      .rready_i    ( internal_obi_req[i].rready ),
+      .sbr_a_chan_i( internal_obi_req_spill[i].a      ),
+      .req_i       ( internal_obi_req_spill[i].req    ),
+      .gnt_o       ( internal_obi_rsp_spill[i].gnt    ),
+      .sbr_r_chan_o( internal_obi_rsp_spill[i].r      ),
+      .rvalid_o    ( internal_obi_rsp_spill[i].rvalid ),
+      .rready_i    ( internal_obi_req_spill[i].rready ),
 
-      .mgr_a_chan_o( filtered_obi_a  [i]        ),
-      .req_o       ( wide_req_o      [i]        ),
-      .gnt_i       ( wide_gnt_i      [i]        ),
-      .mgr_r_chan_i( filtered_obi_r  [i]        ),
-      .rvalid_i    ( wide_rvalid_i   [i]        )
+      .mgr_a_chan_o( filtered_obi_a        [i]        ),
+      .req_o       ( wide_req_o            [i]        ),
+      .gnt_i       ( wide_gnt_i            [i]        ),
+      .mgr_r_chan_i( filtered_obi_r        [i]        ),
+      .rvalid_i    ( wide_rvalid_i         [i]        )
     );
     assign wide_addr_o [i] = filtered_obi_a[i].addr;
     assign wide_we_o   [i] = filtered_obi_a[i].we;
