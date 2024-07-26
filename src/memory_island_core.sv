@@ -43,7 +43,7 @@ module memory_island_core #(
   parameter              MemorySimInit        = "none",
 
   /// Relinquish narrow priority after x cycles, 0 for never. Requires SpillNarrowReqRouted==0.
-  parameter int unsigned WidePriorityWait     = 0,
+  parameter int unsigned WidePriorityWait     = 1,
 
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth      = NarrowDataWidth/8,
