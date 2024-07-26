@@ -35,14 +35,14 @@ module mem_req_multicut #(
 );
 
   localparam int unsigned AggDataWidth  = 1+StrbWidth+AddrWidth+DataWidth;
-  if (NumCuts == 0) begin
+  if (NumCuts == 0) begin : gen_passthrough
     assign req_o    = req_i;
     assign gnt_o    = gnt_i;
     assign addr_o   = addr_i;
     assign we_o     = we_i;
     assign wdata_o  = wdata_i;
     assign strb_o   = strb_i;
-  end else begin
+  end else begin : gen_cuts
     logic [NumCuts:0][AggDataWidth-1:0]  data_agg;
     logic [NumCuts:0] req, gnt;
 
@@ -53,7 +53,7 @@ module mem_req_multicut #(
     assign req_o        = req  [NumCuts];
     assign {we_o, strb_o, addr_o, wdata_o} = data_agg[NumCuts];
 
-    for (genvar i = 0; i < NumCuts; i++) begin
+    for (genvar i = 0; i < NumCuts; i++) begin : gen_cut
       spill_register #(
         .T     (logic[AggDataWidth-1:0]),
         .Bypass(1'b0)

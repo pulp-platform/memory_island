@@ -63,8 +63,8 @@ module axi_memory_island_wrap #(
   output axi_wide_rsp_t   [  NumWideReq-1:0] axi_wide_rsp_o
 );
 
-  localparam NarrowStrbWidth = NarrowDataWidth/8;
-  localparam WideStrbWidth   = WideDataWidth/8;
+  localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
+  localparam int unsigned WideStrbWidth   = WideDataWidth/8;
 
   logic [2*NumNarrowReq-1:0]                      narrow_req;
   logic [2*NumNarrowReq-1:0]                      narrow_gnt;
