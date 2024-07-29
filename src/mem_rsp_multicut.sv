@@ -24,11 +24,11 @@ module mem_rsp_multicut #(
   output logic [DataWidth-1:0] rdata_o
 );
 
-  if (NumCuts == 0) begin
+  if (NumCuts == 0) begin : gen_passthrough
     assign rvalid_o = rvalid_i;
     assign rready_o = rready_i;
     assign rdata_o  = rdata_i;
-  end else begin
+  end else begin : gen_cuts
     logic [NumCuts:0][DataWidth-1:0]  data_agg;
     logic [NumCuts:0] rvalid, rready;
 
@@ -39,7 +39,7 @@ module mem_rsp_multicut #(
     assign rvalid_o        = rvalid   [NumCuts];
     assign rdata_o         = data_agg [NumCuts];
 
-    for (genvar i = 0; i < NumCuts; i++) begin
+    for (genvar i = 0; i < NumCuts; i++) begin : gen_cut
       spill_register #(
         .T     (logic[DataWidth-1:0]),
         .Bypass(1'b0)

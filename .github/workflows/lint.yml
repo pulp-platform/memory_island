@@ -1,0 +1,29 @@
+# Copyright 2024 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+# Author: Michael Rogenmoser <michaero@iis.ee.ethz.ch>
+
+name: lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  lint-verilog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chipsalliance/verible-linter-action@main
+        with:
+          paths: |
+            ./src
+            ./test
+          exclude_paths:
+          extra_args: "--waiver_files .github/verible.waiver --rules=-interface-name-style --lint_fatal --parse_fatal"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reviewdog_reporter: github-check
