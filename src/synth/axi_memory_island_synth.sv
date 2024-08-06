@@ -6,6 +6,7 @@
 `include "axi/typedef.svh"
 `include "axi/port.svh"
 
+// Synthesis wrapper used for testing and internal CI
 module axi_memory_island_synth #(
   localparam int unsigned AddrWidth       = 32,
   localparam int unsigned NarrowDataWidth = 32,
@@ -31,6 +32,7 @@ module axi_memory_island_synth #(
   input  axi_pkg::prot_t   [NumNarrowReq-1:0]                        s_axi_narrow_awprot,
   input  axi_pkg::qos_t    [NumNarrowReq-1:0]                        s_axi_narrow_awqos,
   input  axi_pkg::region_t [NumNarrowReq-1:0]                        s_axi_narrow_awregion,
+  input  axi_pkg::atop_t   [NumNarrowReq-1:0]                        s_axi_narrow_awatop,
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_awuser,
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_wvalid,
   input  logic             [NumNarrowReq-1:0][NarrowDataWidth  -1:0] s_axi_narrow_wdata,
@@ -76,6 +78,7 @@ module axi_memory_island_synth #(
   input  axi_pkg::prot_t   [NumWideReq-1:0]                      s_axi_wide_awprot,
   input  axi_pkg::qos_t    [NumWideReq-1:0]                      s_axi_wide_awqos,
   input  axi_pkg::region_t [NumWideReq-1:0]                      s_axi_wide_awregion,
+  input  axi_pkg::atop_t   [NumWideReq-1:0]                      s_axi_wide_awatop,
   input  logic             [NumWideReq-1:0]                      s_axi_wide_awuser,
   input  logic             [NumWideReq-1:0]                      s_axi_wide_wvalid,
   input  logic             [NumWideReq-1:0][WideDataWidth  -1:0] s_axi_wide_wdata,
@@ -146,6 +149,7 @@ module axi_memory_island_synth #(
     assign narrow_req[i].aw.prot   = s_axi_narrow_awprot  [i];
     assign narrow_req[i].aw.qos    = s_axi_narrow_awqos   [i];
     assign narrow_req[i].aw.region = s_axi_narrow_awregion[i];
+    assign narrow_req[i].aw.atop   = s_axi_narrow_awatop  [i];
     assign narrow_req[i].aw.user   = s_axi_narrow_awuser  [i];
     assign narrow_req[i].w_valid   = s_axi_narrow_wvalid  [i];
     assign narrow_req[i].w.data    = s_axi_narrow_wdata   [i];
@@ -210,6 +214,7 @@ module axi_memory_island_synth #(
     assign wide_req[i].aw.prot   = s_axi_wide_awprot  [i];
     assign wide_req[i].aw.qos    = s_axi_wide_awqos   [i];
     assign wide_req[i].aw.region = s_axi_wide_awregion[i];
+    assign wide_req[i].aw.atop   = s_axi_wide_awatop  [i];
     assign wide_req[i].aw.user   = s_axi_wide_awuser  [i];
     assign wide_req[i].w_valid   = s_axi_wide_wvalid  [i];
     assign wide_req[i].w.data    = s_axi_wide_wdata   [i];
