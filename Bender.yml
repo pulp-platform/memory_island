@@ -28,3 +28,7 @@ sources:
   - target: test
     files:
       - test/axi_memory_island_tb.sv
+
+  - target: memory_island_standalone_synth
+    files:
+      - src/synth/axi_memory_island_synth.sv
