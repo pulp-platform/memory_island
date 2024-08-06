@@ -1,6 +1,0 @@
-# Copyright 2024 ETH Zurich and University of Bologna.
-# Licensed under the Apache License, Version 2.0, see LICENSE for details.
-# SPDX-License-Identifier: Apache-2.0
-
-waive --rule=explicit-parameter-storage-type --location="src/memory_island_core.sv" --line=43
-waive --rule=explicit-parameter-storage-type --location="src/axi_memory_island_wrap.sv" --line=54
