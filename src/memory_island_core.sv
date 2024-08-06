@@ -40,6 +40,7 @@ module memory_island_core #(
   parameter int unsigned SpillReqBank         = 0,
   parameter int unsigned SpillRspBank         = 0,
 
+  // verilog_lint: waive explicit-parameter-storage-type
   parameter              MemorySimInit        = "none",
 
   /// Relinquish narrow priority after x cycles, 0 for never. Requires SpillNarrowReqRouted==0.

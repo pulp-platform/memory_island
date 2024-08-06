@@ -56,6 +56,7 @@ module axi_memory_island_wrap #(
   parameter int unsigned NarrowExtraBF        = 1,
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
   parameter int unsigned WordsPerBank         = 1024,
+  // verilog_lint: waive explicit-parameter-storage-type
   parameter              MemorySimInit        = "none"
 ) (
   input  logic                               clk_i,
