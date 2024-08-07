@@ -42,6 +42,8 @@ module geared_memory_island #(
   parameter int unsigned SpillReqBank         = 0,
   parameter int unsigned SpillRspBank         = 0,
 
+  parameter bit          InternalCombRspReq   = 1'b1,
+
   parameter              MemorySimInit        = "none",
 
   // Derived, DO NOT OVERRIDE
@@ -94,6 +96,7 @@ module geared_memory_island #(
   logic [NumNarrowReq-1:0][GearRatio-1:0] narrow_req_geared;
   logic [NumNarrowReq-1:0][GearRatio-1:0] narrow_gnt_geared;
   logic [NumNarrowReq-1:0][GearRatio-1:0] narrow_rvalid_geared;
+  logic [NumNarrowReq-1:0][GearRatio-1:0] narrow_rready_geared;
   logic [NumNarrowReq-1:0][GearRatio-1:0][NarrowDataWidth-1:0] narrow_rdata_geared;
 
   logic [NumNarrowReq-1:0][GearRatio-1:0] narrow_selected;
@@ -107,10 +110,16 @@ module geared_memory_island #(
   logic [GearRatio*NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_wdata_entry_geared;
   logic [GearRatio*NumNarrowReq-1:0][NarrowStrbWidth-1:0] narrow_strb_entry_geared;
   logic [GearRatio*NumNarrowReq-1:0]                      narrow_rvalid_entry_geared;
+  logic [GearRatio*NumNarrowReq-1:0]                      narrow_rready_entry_geared;
   logic [GearRatio*NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_rdata_entry_geared;
 
   wide_mem_req_t [NumWideReq-1:0] wide_mem_req;
   wide_mem_req_t [NumWideReq-1:0][GearRatio-1:0] wide_mem_req_geared;
+  logic [NumWideReq-1:0][GearRatio-1:0] wide_req_geared;
+  logic [NumWideReq-1:0][GearRatio-1:0] wide_gnt_geared;
+  logic [NumWideReq-1:0][GearRatio-1:0] wide_rvalid_geared;
+  logic [NumWideReq-1:0][GearRatio-1:0] wide_rready_geared;
+  logic [NumWideReq-1:0][GearRatio-1:0][WideDataWidth-1:0] wide_rdata_geared;
 
   logic [GearRatio*  NumWideReq-1:0]                      wide_req_entry_geared;
   logic [GearRatio*  NumWideReq-1:0]                      wide_gnt_entry_geared;
@@ -119,6 +128,7 @@ module geared_memory_island #(
   logic [GearRatio*  NumWideReq-1:0][  WideDataWidth-1:0] wide_wdata_entry_geared;
   logic [GearRatio*  NumWideReq-1:0][  WideStrbWidth-1:0] wide_strb_entry_geared;
   logic [GearRatio*  NumWideReq-1:0]                      wide_rvalid_entry_geared;
+  logic [GearRatio*  NumWideReq-1:0]                      wide_rready_entry_geared;
   logic [GearRatio*  NumWideReq-1:0][  WideDataWidth-1:0] wide_rdata_entry_geared;
 
   clk_int_div #(
@@ -166,14 +176,15 @@ module geared_memory_island #(
 
     for (genvar j = 0; j < GearRatio; j++) begin
       localparam id = i*GearRatio + j;
-      assign narrow_req_entry_geared  [id]   = narrow_req_geared         [i][j];
-      assign narrow_gnt_geared        [i][j] = narrow_gnt_entry_geared   [id];
-      assign narrow_addr_entry_geared [id]   = narrow_mem_req_geared     [i][j].addr;
-      assign narrow_we_entry_geared   [id]   = narrow_mem_req_geared     [i][j].we;
-      assign narrow_wdata_entry_geared[id]   = narrow_mem_req_geared     [i][j].wdata;
-      assign narrow_strb_entry_geared [id]   = narrow_mem_req_geared     [i][j].strb;
-      assign narrow_rvalid_geared     [i][j] = narrow_rvalid_entry_geared[id];
-      assign narrow_rdata_geared      [i][j] = narrow_rdata_entry_geared [id];
+      assign narrow_req_entry_geared   [id]   = narrow_req_geared         [i][j];
+      assign narrow_gnt_geared         [i][j] = narrow_gnt_entry_geared   [id];
+      assign narrow_addr_entry_geared  [id]   = narrow_mem_req_geared     [i][j].addr;
+      assign narrow_we_entry_geared    [id]   = narrow_mem_req_geared     [i][j].we;
+      assign narrow_wdata_entry_geared [id]   = narrow_mem_req_geared     [i][j].wdata;
+      assign narrow_strb_entry_geared  [id]   = narrow_mem_req_geared     [i][j].strb;
+      assign narrow_rvalid_geared      [i][j] = narrow_rvalid_entry_geared[id];
+      assign narrow_rready_entry_geared[id]   = narrow_rready_geared      [i][j];
+      assign narrow_rdata_geared       [i][j] = narrow_rdata_entry_geared [id];
     end
 
     onehot_to_bin #(
@@ -191,7 +202,7 @@ module geared_memory_island #(
       .clk_i,
       .rst_ni,
       .flush_i   ('0),
-      .testmode_i(),
+      .testmode_i('0),
       .full_o    (),
       .empty_o   (),
       .usage_o   (),
@@ -211,19 +222,103 @@ module geared_memory_island #(
       .clr_i         ('0),
 
       .valid_i       ( narrow_rvalid_geared  [i] ),
-      .ready_o       (), // This is a problem... -> fix it
+      .ready_o       ( narrow_rready_geared  [i] ),
       .data_i        ( narrow_rdata_geared   [i] ),
 
       .valid_o       ( narrow_rvalid_o       [i] ),
       .ready_i       ( 1'b1                      ),
       .data_o        ( narrow_rdata_o        [i] ),
-      .selected_reg_i( 1<<narrow_selected_out[i]),
+      .selected_reg_i( 1<<narrow_selected_out[i] ),
+    );
+  end
+
+  for (genvar i = 0; i < NumWideReq; i++) begin : gen_wide_gearing
+    assign wide_mem_req[i] = '{
+      addr:  wide_addr_i  [i],
+      we:    wide_we_i    [i],
+      wdata: wide_wdata_i [i],
+      strb:  wide_strb_i  [i]
+    };
+
+    geared_stream_split #(
+      .GearRatio ( GearRatio        ),
+      .T         ( wide_mem_req_t )
+    ) i_gear_split (
+      .clk_i,
+      .geared_clk_i   ( geared_clk             ),
+      .rst_ni,
+      .clr_i          ( '0                     ),
+
+      .valid_i        ( wide_req_i         [i] ),
+      .ready_o        ( wide_gnt_o         [i] ),
+      .data_i         ( wide_mem_req       [i] ),
+      .selected_reg_o ( wide_selected      [i] ),
+
+      .valid_o        ( wide_req_geared    [i] ),
+      .ready_i        ( wide_gnt_geared    [i] ),
+      .data_o         ( wide_mem_req_geared[i] )
+    );
+
+    for (genvar j = 0; j < GearRatio; j++) begin
+      localparam id = i*GearRatio + j;
+      assign wide_req_entry_geared   [id]   = wide_req_geared         [i][j];
+      assign wide_gnt_geared         [i][j] = wide_gnt_entry_geared   [id];
+      assign wide_addr_entry_geared  [id]   = wide_mem_req_geared     [i][j].addr;
+      assign wide_we_entry_geared    [id]   = wide_mem_req_geared     [i][j].we;
+      assign wide_wdata_entry_geared [id]   = wide_mem_req_geared     [i][j].wdata;
+      assign wide_strb_entry_geared  [id]   = wide_mem_req_geared     [i][j].strb;
+      assign wide_rvalid_geared      [i][j] = wide_rvalid_entry_geared[id];
+      assign wide_rready_entry_geared[id]   = wide_rready_geared      [i][j];
+      assign wide_rdata_geared       [i][j] = wide_rdata_entry_geared [id];
+    end
+
+    onehot_to_bin #(
+      .ONEHOT_WIDTH ( GearRatio )
+    ) i_gear_to_bin (
+      .onehot ( wide_selected    [i] ),
+      .bin    ( wide_selected_bin[i] )
+    );
+
+    fifo_v3 #(
+      .FALL_THROUGH(1'b0),
+      .DATA_WIDTH  ($clog2(GearRatio)),
+      .DEPTH       () // TODO: NumOutstanding * GearRatio
+    ) i_selection_fifo (
+      .clk_i,
+      .rst_ni,
+      .flush_i   ('0),
+      .testmode_i('0),
+      .full_o    (),
+      .empty_o   (),
+      .usage_o   (),
+      .data_i    (  wide_selected_bin[i] ),
+      .push_i    ( |wide_selected    [i] ),
+      .data_o    (  wide_selected_out[i] ),
+      .pop_i     (  wide_rvalid_o    [i] )
+    );
+
+    geared_stream_collect #(
+      .GearRatio ( GearRatio ),
+      .T         ( logic [WideDataWidth-1:0] )
+    ) i_gear_collect (
+      .clk_i,
+      .geared_clk_i  ( geared_clk              ),
+      .rst_ni,
+      .clr_i         ('0),
+
+      .valid_i       ( wide_rvalid_geared  [i] ),
+      .ready_o       ( wide_rready_geared  [i] ),
+      .data_i        ( wide_rdata_geared   [i] ),
+
+      .valid_o       ( wide_rvalid_o       [i] ),
+      .ready_i       ( 1'b1                    ),
+      .data_o        ( wide_rdata_o        [i] ),
+      .selected_reg_i( 1<<wide_selected_out[i] ),
     );
   end
 
 
-
-  memory_island_core #(
+  memory_island_core_rready_wrap #(
     .AddrWidth            ( AddrWidth              ),
     .NarrowDataWidth      ( NarrowDataWidth        ),
     .WideDataWidth        ( WideDataWidth          ),
@@ -248,6 +343,8 @@ module geared_memory_island #(
     .SpillReqBank         ( SpillReqBank           ),
     .SpillRspBank         ( SpillRspBank           ),
 
+    .CombRspReq           ( InternalCombRspReq     ),
+
     .MemorySimInit        ( MemorySimInit          )
   ) i_memory_island_core (
     .clk_i           ( geared_clk                 ),
@@ -259,6 +356,7 @@ module geared_memory_island #(
     .narrow_wdata_i  ( narrow_wdata_entry_geared  ),
     .narrow_strb_i   ( narrow_strb_entry_geared   ),
     .narrow_rvalid_o ( narrow_rvalid_entry_geared ),
+    .narrow_rready_i ( narrow_rready_entry_geared ),
     .narrow_rdata_o  ( narrow_rdata_entry_geared  ),
     .wide_req_i      ( wide_req_entry_geared      ),
     .wide_gnt_o      ( wide_gnt_entry_geared      ),
@@ -267,6 +365,7 @@ module geared_memory_island #(
     .wide_wdata_i    ( wide_wdata_entry_geared    ),
     .wide_strb_i     ( wide_strb_entry_geared     ),
     .wide_rvalid_o   ( wide_rvalid_entry_geared   ),
+    .wide_rready_i   ( wide_rready_entry_geared   ),
     .wide_rdata_o    ( wide_rdata_entry_geared    )
   );
 
