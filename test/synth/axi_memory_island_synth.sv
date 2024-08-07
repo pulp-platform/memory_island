@@ -137,7 +137,7 @@ module axi_memory_island_synth #(
   axi_wide_req_t    [NumWideReq  -1:0] wide_cut_req;
   axi_wide_resp_t   [NumWideReq  -1:0] wide_cut_rsp;
 
-  for (genvar i = 0; i < NumNarrowReq; i++) begin
+  for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_assign
     assign narrow_req[i].aw_valid  = s_axi_narrow_awvalid [i];
     assign narrow_req[i].aw.id     = s_axi_narrow_awid    [i];
     assign narrow_req[i].aw.addr   = s_axi_narrow_awaddr  [i];
@@ -202,7 +202,7 @@ module axi_memory_island_synth #(
     );
   end
 
-  for (genvar i = 0; i < NumWideReq; i++) begin
+  for (genvar i = 0; i < NumWideReq; i++) begin : gen_wide_assign
     assign wide_req[i].aw_valid  = s_axi_wide_awvalid [i];
     assign wide_req[i].aw.id     = s_axi_wide_awid    [i];
     assign wide_req[i].aw.addr   = s_axi_wide_awaddr  [i];
@@ -279,7 +279,20 @@ module axi_memory_island_synth #(
     .axi_wide_rsp_t       ( axi_wide_resp_t   ),
     .NumNarrowReq         ( NumNarrowReq      ),
     .NumWideReq           ( NumWideReq        ),
-    .WordsPerBank         ( WordsPerBank      )
+    .WordsPerBank         ( WordsPerBank      ),
+    .SpillNarrowReqEntry (0),
+    .SpillNarrowRspEntry (0),
+    .SpillNarrowReqRouted(0),
+    .SpillNarrowRspRouted(0),
+    .SpillWideReqEntry   (0),
+    .SpillWideRspEntry   (0),
+    .SpillWideReqRouted  (0),
+    .SpillWideRspRouted  (0),
+    .SpillWideReqSplit   (0),
+    .SpillWideRspSplit   (0),
+    .SpillReqBank        (0),
+    .SpillRspBank        (1),
+    .WidePriorityWait    (2)
   ) i_mem_island (
     .clk_i,
     .rst_ni,

@@ -43,7 +43,7 @@ module axi_memory_island_wrap #(
   parameter int unsigned SpillRspBank         = 0,
 
   /// Relinquish narrow priority after x cycles, 0 for never. Requires SpillNarrowReqRouted==0.
-  parameter int unsigned WidePriorityWait     = 0,
+  parameter int unsigned WidePriorityWait     = 1,
 
   /// Banking Factor for the Wide Ports (power of 2)
   parameter int unsigned NumWideBanks         = (1<<$clog2(NumWideReq))*2*2,
