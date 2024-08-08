@@ -290,7 +290,7 @@ module axi_memory_island_synth #(
     .SpillWideRspRouted  (0),
     .SpillWideReqSplit   (0),
     .SpillWideRspSplit   (0),
-    .SpillReqBank        (0),
+    .SpillReqBank        (1),
     .SpillRspBank        (1),
     .WidePriorityWait    (2)
   ) i_mem_island (

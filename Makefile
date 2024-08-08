@@ -19,6 +19,9 @@ test-vsim: scripts/compile.tcl
 	$(VSIM) -64 -c -do "quit -code [source scripts/compile.tcl]"
 	$(VSIM) -64 -do "vsim axi_memory_island_tb -voptargs=+acc; do scripts/debug_wave.do"
 
+test-vsim-bare: scripts/compile.tcl
+	$(VSIM) -64 -c -do "quit -code [source scripts/compile.tcl]"
+	$(VSIM) -64 -c -do "vsim axi_memory_island_tb; run -all"
 
 ## Internal CI
 NONFREE_REMOTE ?= git@iis-git.ee.ethz.ch:pulp-restricted/memory_island_nonfree.git
