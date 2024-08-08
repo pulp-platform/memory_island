@@ -8,3 +8,7 @@ work/
 transcript
 vsim.wlf
 vsim_stacktrace*
+
+# Internal CI
+/nonfree/
+/spyglass/

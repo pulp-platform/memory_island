@@ -696,7 +696,7 @@ module axi_memory_island_tb #(
       errors += $countones(mismatch);
       if (end_of_sim == '1) begin
         $display("Counted %d errors.", errors);
-        $stop();
+        $finish(errors);
       end
       @(posedge clk);
     end while (1'b1);
