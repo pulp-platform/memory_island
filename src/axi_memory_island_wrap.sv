@@ -56,6 +56,12 @@ module axi_memory_island_wrap #(
   parameter int unsigned NarrowExtraBF        = 1,
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
   parameter int unsigned WordsPerBank         = 1024,
+  /// Use DMA
+  parameter bit          EnableDMA            = 1'b0,
+  /// Register types for DMA configuration
+  parameter type dma_reg_req_t                = logic,
+  parameter type dma_reg_rsp_t                = logic,
+
   // verilog_lint: waive explicit-parameter-storage-type
   parameter              MemorySimInit        = "none"
 ) (
@@ -66,14 +72,17 @@ module axi_memory_island_wrap #(
   output axi_narrow_rsp_t [NumNarrowReq-1:0] axi_narrow_rsp_o,
 
   input  axi_wide_req_t   [  NumWideReq-1:0] axi_wide_req_i,
-  output axi_wide_rsp_t   [  NumWideReq-1:0] axi_wide_rsp_o
+  output axi_wide_rsp_t   [  NumWideReq-1:0] axi_wide_rsp_o,
+
+  input  dma_reg_req_t                       dma_reg_req_i,
+  output dma_reg_rsp_t                       dma_reg_rsp_o
 );
 
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
   localparam int unsigned WideStrbWidth   = WideDataWidth/8;
 
   localparam int unsigned InternalNumNarrow = NumNarrowReq + $countones(NarrowRW);
-  localparam int unsigned InternalNumWide   = NumWideReq   + $countones(WideRW);
+  localparam int unsigned InternalNumWide   = NumWideReq   + $countones(WideRW) + (EnableDMA ? 2 : 0);
 
   localparam int unsigned NarrowMemRspLatency = SpillNarrowReqEntry +
                                                 SpillNarrowReqRouted +
@@ -231,13 +240,57 @@ module axi_memory_island_wrap #(
     end
   end
 
+  if (EnableDMA) begin : gen_dma
+    memory_island_dma #(
+      .reg_req_t      ( dma_reg_req_t   ),
+      .reg_rsp_t      ( dma_reg_rsp_t   ),
+      .AddrWidth      ( AddrWidth       ),
+      .NarrowDataWidth( NarrowDataWidth ),
+      .WideDataWidth  ( WideDataWidth   ),
+      .MemoryLatency  ( SpillWideReqEntry + SpillWideReqRouted + SpillWideReqSplit +
+                        SpillWideRspSplit + SpillWideRspRouted + SpillWideRspEntry +
+                        SpillReqBank + SpillRspBank + 1 )
+    ) i_dma (
+      .clk_i,
+      .rst_ni,
+
+      .test_mode_i  ( '0 ),
+
+      .reg_req_i    ( dma_reg_req_i ),
+      .reg_rsp_o    ( dma_reg_rsp_o ),
+
+      .wide_req_o   ( wide_req    [InternalNumWide-:2] ),
+      .wide_gnt_i   ( wide_gnt    [InternalNumWide-:2] ),
+      .wide_addr_o  ( wide_addr   [InternalNumWide-:2] ),
+      .wide_we_o    ( wide_we     [InternalNumWide-:2] ),
+      .wide_wdata_o ( wide_wdata  [InternalNumWide-:2] ),
+      .wide_strb_o  ( wide_strb   [InternalNumWide-:2] ),
+      .wide_rvalid_i( wide_rvalid [InternalNumWide-:2] ),
+      .wide_rdata_i ( wide_rdata  [InternalNumWide-:2] )
+    );
+  end else begin : gen_dma_error_slv
+    if ($bits(dma_reg_rsp_t) > 1) begin : gen_actual_err_slv
+      reg_err_slv #(
+        .DW     (32),
+        .ERR_VAL('0),
+        .req_t  (dma_reg_req_t),
+        .rsp_t  (dma_reg_rsp_t)
+      ) i_reg_err (
+        .req_i(dma_reg_req_i),
+        .rsp_o(dma_reg_rsp_o)
+      );
+    end else begin : gen_tie_logic_0
+      assign dma_reg_rsp_o = '0;
+    end
+  end
+
 
   memory_island_core #(
     .AddrWidth            ( AddrWidth            ),
     .NarrowDataWidth      ( NarrowDataWidth      ),
     .WideDataWidth        ( WideDataWidth        ),
-    .NumNarrowReq         ( 2*NumNarrowReq       ),
-    .NumWideReq           ( 2*NumWideReq         ),
+    .NumNarrowReq         ( InternalNumNarrow    ),
+    .NumWideReq           ( InternalNumWide      ),
     .NumWideBanks         ( NumWideBanks         ),
     .NarrowExtraBF        ( NarrowExtraBF        ),
     .WordsPerBank         ( WordsPerBank         ),
