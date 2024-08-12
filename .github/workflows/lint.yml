@@ -27,3 +27,21 @@ jobs:
           extra_args: "--rules=-interface-name-style --lint_fatal --parse_fatal"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reviewdog_reporter: github-check
+
+  lint-sv-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Run Verible formatter action
+        uses: chipsalliance/verible-formatter-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          files:
+            ./src/*.sv
+            ./test/*.sv
+            ./text/synth/*.sv
+          parameters:
+            --flagfile .verilog_format
+          fail_on_formatting_suggestions: true
