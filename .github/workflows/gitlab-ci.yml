@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Gitlab CI
-        uses: pulp-platform/pulp-actions/gitlab-ci@v2
+        uses: pulp-platform/pulp-actions/gitlab-ci@v2.4.1
         if: >
           github.repository == 'pulp-platform/memory_island' &&
           (github.event_name != 'pull_request' ||
