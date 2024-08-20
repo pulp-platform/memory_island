@@ -10,13 +10,13 @@
 module axi_memory_island_synth #(
   localparam int unsigned AddrWidth       = 32,
   localparam int unsigned NarrowDataWidth = 32,
-  localparam int unsigned WideDataWidth   = 512,
+  localparam int unsigned WideDataWidth   = 256,
 
-  localparam int unsigned AxiIdWidth      = 3,
+  localparam int unsigned AxiIdWidth      = 2,
 
-  localparam int unsigned NumNarrowReq    = 5,
+  localparam int unsigned NumNarrowReq    = 6,
   localparam int unsigned NumWideReq      = 4,
-  localparam int unsigned WordsPerBank    = 8192
+  localparam int unsigned WordsPerBank    = 2048
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -280,6 +280,7 @@ module axi_memory_island_synth #(
     .NumNarrowReq         ( NumNarrowReq      ),
     .NumWideReq           ( NumWideReq        ),
     .WordsPerBank         ( WordsPerBank      ),
+    .NumWideBanks        (4),
     .SpillNarrowReqEntry (0),
     .SpillNarrowRspEntry (0),
     .SpillNarrowReqRouted(0),
