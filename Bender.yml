@@ -16,6 +16,8 @@ dependencies:
 
 sources:
   # Level 0
+  - src/geared_stream_collect.sv
+  - src/geared_stream_split.sv
   - src/mem_req_multicut.sv
   - src/mem_rsp_multicut.sv
   - src/stream_mem_to_banks_det.sv
