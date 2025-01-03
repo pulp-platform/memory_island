@@ -10,8 +10,10 @@ BENDER ?= bender -d $(MEMORY_ISLAND_ROOT)
 
 VSIM ?= vsim
 
+BENDER_FLAG ?=
+
 scripts/compile.tcl: Bender.yml Bender.lock
-	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
+	$(BENDER) script vsim $(BENDER_FLAG) --vlog-arg="-svinputport=compat" > $@
 	echo "return 0" >> $@
 
 .PHONY: test-vsim
