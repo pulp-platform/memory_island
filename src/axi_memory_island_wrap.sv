@@ -146,7 +146,7 @@ module axi_memory_island_wrap #(
         .axi_req_t    ( axi_narrow_req_t        ),
         .axi_resp_t   ( axi_narrow_rsp_t        ),
         .AddrWidth    ( AddrWidth               ),
-        .AxiDataWidth ( NarrowDataWidth         ),
+        .DataWidth    ( NarrowDataWidth         ),
         .IdWidth      ( AxiNarrowIdWidth        ),
         .NumBanks     ( 1                       ),
         .BufDepth     ( 1 + NarrowMemRspLatency ),
