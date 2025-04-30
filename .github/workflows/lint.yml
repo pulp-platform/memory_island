@@ -31,9 +31,12 @@ jobs:
   lint-sv-format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Print fix
+        run: |
+          echo "Fix with `make format`"
       - name: Run Verible formatter action
         uses: chipsalliance/verible-formatter-action@main
         with:
@@ -41,7 +44,7 @@ jobs:
           files:
             ./src/*.sv
             ./test/*.sv
-            ./text/synth/*.sv
+            ./test/synth/*.sv
           parameters:
             --flagfile .verilog_format
           fail_on_formatting_suggestions: true

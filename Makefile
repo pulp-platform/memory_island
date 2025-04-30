@@ -32,3 +32,7 @@ nonfree-init:
 	cd nonfree && git checkout $(NONFREE_COMMIT)
 
 -include $(MEMORY_ISLAND_ROOT)/nonfree/nonfree.mk
+
+.PHONY: format
+format:
+	verible-verilog-format ./src/*.sv ./test/*.sv ./test/synth/*.sv --inplace --flagfile .verilog_format
