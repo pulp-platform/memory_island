@@ -525,8 +525,9 @@ module memory_island_core #(
       .RUserWidth ( 1                                  ),
       .NumBanks   ( NWDivisor                          ),
       .HideStrb   ( 1'b1                               ),
-      .MaxTrans   ( 2                                  ), // TODO tune?
-      .FifoDepth  ( 3                                  )  // TODO tune?
+      .MaxTrans   ( SpillWideReqSplit + SpillReqBank +
+                    SpillWideRspSplit + SpillRspBank + 1 ),
+      .FifoDepth  ( 3                                  )
     ) i_wide_to_banks (
       .clk_i,
       .rst_ni,
