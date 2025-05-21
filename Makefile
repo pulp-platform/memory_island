@@ -9,6 +9,8 @@ MEMORY_ISLAND_ROOT := $(CURDIR)
 BENDER ?= bender -d $(MEMORY_ISLAND_ROOT)
 
 VSIM ?= vsim
+VCS ?= vcs
+VLOGAN ?= vlogan
 
 scripts/compile.tcl: Bender.yml Bender.lock
 	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
@@ -38,3 +40,27 @@ BENDER_FILES := $(shell $(BENDER) script flist -n -t test -t memory_island_stand
 .PHONY: format
 format:
 	verible-verilog-format $(BENDER_FILES) --inplace --flagfile .verilog_format
+
+
+VCS_FLAGS ?= -full64 -nc -ignore initializer_driver_checks -assert disable_cover -kdb -Mlib=$(VCS_BUILDDIR)
+VLOGAN_ARGS += -full64 -q -ntb_opts uvm -kdb -nc -assert svaext +v2k -timescale=1ps/1ps -incr_vlogan $(TRACE_FLAGS_VCS)
+
+$(MEMORY_ISLAND_ROOT)/build:
+	mkdir -p $@
+
+$(MEMORY_ISLAND_ROOT)/build/compile-vcs: $(MEMORY_ISLAND_ROOT)/build
+	$(BENDER) script vcs -t test --vlog-arg="$(VLOGAN_ARGS)" --vlogan-bin "$(VLOGAN)" > $@
+	chmod +x $@
+
+$(MEMORY_ISLAND_ROOT)/build/vcs.bin: $(MEMORY_ISLAND_ROOT)/build/compile-vcs
+	cd $(MEMORY_ISLAND_ROOT)/build && \
+	sh $< && \
+	$(VCS) -top axi_memory_island_tb $(VCS_FLAGS) -o $@
+
+.PHONY: test-vcs test-vcs-clean
+test-vcs: $(MEMORY_ISLAND_ROOT)/build/vcs.bin
+	cd $(MEMORY_ISLAND_ROOT)/build && \
+	$<
+
+test-vcs-clean:
+	rm -rf $(MEMORY_ISLAND_ROOT)/build
