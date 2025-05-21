@@ -111,7 +111,8 @@ module memory_island_core #(
   localparam int unsigned NarrowAddrMemWidth = AddrTopBit - AddrNarrowWideBit;
 
 
-  localparam int unsigned NarrowIntcBankLat = BankAccessLatency+SpillNarrowReqRouted+SpillNarrowRspRouted+SpillReqBank+SpillRspBank;
+  localparam int unsigned NarrowIntcBankLat = BankAccessLatency + SpillNarrowReqRouted +
+      SpillNarrowRspRouted + SpillReqBank + SpillRspBank;
 
   logic [NumNarrowReq-1:0] narrow_req_entry_spill;
   logic [NumNarrowReq-1:0] narrow_gnt_entry_spill;
@@ -381,7 +382,8 @@ module memory_island_core #(
           narrow_gnt_routed_spill[(extraFactor*NWDivisor)+subBank] = '0;
           for (int wideBank = 0; wideBank < TotalBanks / WidePseudoBanks; wideBank++) begin
             if (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank) begin
-              narrow_gnt_routed_spill[PseudoIdx] = narrow_gnt_bank [(wideBank*NarrowExtraBF)+extraFactor][subBank];
+              narrow_gnt_routed_spill[PseudoIdx] =
+                  narrow_gnt_bank[(wideBank*NarrowExtraBF)+extraFactor][subBank];
             end
           end
         end
@@ -399,9 +401,10 @@ module memory_island_core #(
       for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_routed_bank_l3
         localparam int unsigned WideBankIdx = (wideBank * NarrowExtraBF) + extraFactor;
         localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
-        assign narrow_req_bank  [WideBankIdx][subBank] = narrow_req_routed_spill  [PseudoIdx] &
-                                                        (narrow_addr_routed_spill [PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank);
-        assign narrow_addr_bank [WideBankIdx][subBank] = narrow_addr_routed_spill [PseudoIdx][NarrowAddrMemWidth-1:NarrowWideBankSelWidth];
+        assign narrow_req_bank[WideBankIdx][subBank] = narrow_req_routed_spill[PseudoIdx] &
+            (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank);
+        assign narrow_addr_bank[WideBankIdx][subBank] =
+            narrow_addr_routed_spill[PseudoIdx][NarrowAddrMemWidth-1:NarrowWideBankSelWidth];
         assign narrow_we_bank[WideBankIdx][subBank] = narrow_we_routed_spill[PseudoIdx];
         assign narrow_wdata_bank[WideBankIdx][subBank] = narrow_wdata_routed_spill[PseudoIdx];
         assign narrow_strb_bank[WideBankIdx][subBank] = narrow_strb_routed_spill[PseudoIdx];
@@ -425,7 +428,8 @@ module memory_island_core #(
         .d_i(narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0]),
         .d_o(narrow_rdata_sel)
       );
-      assign narrow_rdata_routed_spill[PseudoIdx] = narrow_rdata_bank[(narrow_rdata_sel*NarrowExtraBF) + extraFactor][subBank];
+      assign narrow_rdata_routed_spill[PseudoIdx] =
+          narrow_rdata_bank[(narrow_rdata_sel*NarrowExtraBF)+extraFactor][subBank];
     end
   end
 
@@ -612,10 +616,14 @@ module memory_island_core #(
       assign req_bank[i][j] = narrow_req_bank[i][j] | wide_req_bank_spill[i][j];
       assign narrow_gnt_bank[i][j] = narrow_priority_req[i][j];
       assign wide_gnt_bank_spill[i][j] = ~narrow_priority_req[i][j];
-      assign we_bank              [i][j] =  narrow_priority_req[i][j] ? narrow_we_bank   [i][j] : wide_we_bank_spill   [i][j];
-      assign addr_bank            [i][j] =  narrow_priority_req[i][j] ? narrow_addr_bank [i][j] : wide_addr_bank_spill [i][j];
-      assign wdata_bank           [i][j] =  narrow_priority_req[i][j] ? narrow_wdata_bank[i][j] : wide_wdata_bank_spill[i][j];
-      assign strb_bank            [i][j] =  narrow_priority_req[i][j] ? narrow_strb_bank [i][j] : wide_strb_bank_spill [i][j];
+      assign we_bank[i][j] = narrow_priority_req[i][j] ? narrow_we_bank[i][j] :
+          wide_we_bank_spill[i][j];
+      assign addr_bank[i][j] = narrow_priority_req[i][j] ? narrow_addr_bank[i][j] :
+          wide_addr_bank_spill[i][j];
+      assign wdata_bank[i][j] = narrow_priority_req[i][j] ? narrow_wdata_bank[i][j] :
+          wide_wdata_bank_spill[i][j];
+      assign strb_bank[i][j] = narrow_priority_req[i][j] ? narrow_strb_bank[i][j] :
+          wide_strb_bank_spill[i][j];
       assign narrow_rdata_bank[i][j] = rdata_bank[i][j];
       assign wide_rdata_bank_spill[i][j] = rdata_bank[i][j];
 
@@ -688,7 +696,8 @@ module memory_island_core #(
           assign shift_rvalid_d[k] = shift_rvalid_q[k-1];
         end
       end
-      assign wide_rvalid_bank_spill[i][j] = shift_rvalid_q[SpillReqBank+SpillRspBank+BankAccessLatency-1];
+      assign wide_rvalid_bank_spill[i][j] =
+          shift_rvalid_q[SpillReqBank+SpillRspBank+BankAccessLatency-1];
 
       always_ff @(posedge clk_i or negedge rst_ni) begin : proc_wide_bank_rvalid
         if (~rst_ni) begin

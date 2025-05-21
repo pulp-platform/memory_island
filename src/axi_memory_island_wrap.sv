@@ -79,22 +79,11 @@ module axi_memory_island_wrap #(
   localparam int unsigned InternalNumNarrow = NumNarrowReq + $countones(NarrowRW);
   localparam int unsigned InternalNumWide = NumWideReq + $countones(WideRW);
 
-  localparam int unsigned NarrowMemRspLatency = SpillNarrowReqEntry +
-                                                SpillNarrowReqRouted +
-                                                SpillReqBank +
-                                                SpillRspBank +
-                                                SpillNarrowRspRouted +
-                                                SpillNarrowRspEntry +
-                                                BankAccessLatency;
-  localparam int unsigned  WideMemRspLatency = SpillWideReqEntry +
-                                               SpillWideReqRouted +
-                                               SpillWideReqSplit +
-                                               SpillReqBank +
-                                               SpillRspBank +
-                                               SpillWideRspSplit +
-                                               SpillWideRspRouted +
-                                               SpillWideRspEntry +
-                                               BankAccessLatency;
+  localparam int unsigned NarrowMemRspLatency = SpillNarrowReqEntry + SpillNarrowReqRouted +
+      SpillReqBank + SpillRspBank + SpillNarrowRspRouted + SpillNarrowRspEntry + BankAccessLatency;
+  localparam int unsigned WideMemRspLatency = SpillWideReqEntry + SpillWideReqRouted +
+      SpillWideReqSplit + SpillReqBank + SpillRspBank + SpillWideRspSplit + SpillWideRspRouted +
+      SpillWideRspEntry + BankAccessLatency;
 
   logic [InternalNumNarrow-1:0]                      narrow_req;
   logic [InternalNumNarrow-1:0]                      narrow_gnt;

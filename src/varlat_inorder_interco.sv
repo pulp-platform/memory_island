@@ -137,9 +137,8 @@ module varlat_inorder_interco #(
 
     // Response path
     for (genvar i = 0; i < NumIn; i++) begin : gen_rsp
-      assign vld_o[i] = rvalid_i[bank_sel_rsp[i]] &
-                        rready_o[bank_sel_rsp[i]] &
-                        (ini_addr_rsp[bank_sel_rsp[i]] == i);
+      assign vld_o[i] = rvalid_i[bank_sel_rsp[i]] & rready_o[bank_sel_rsp[i]] &
+          (ini_addr_rsp[bank_sel_rsp[i]] == i);
       assign rdata_o[i] = rdata_i[bank_sel_rsp[i]];
     end
     for (genvar i = 0; i < NumOut; i++) begin : gen_rready
