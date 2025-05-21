@@ -31,7 +31,8 @@ module axi_memory_island_tb #(
   localparam int unsigned TestRegionEnd   = 16384
 ) ();
 
-  localparam int unsigned TotalNumberOfWords = WordsPerBank * NumWideBanks * WideDataWidth / NarrowDataWidth;
+  localparam int unsigned TotalNumberOfWords = WordsPerBank * NumWideBanks *
+                                               WideDataWidth / NarrowDataWidth;
   localparam int unsigned TotalBytes = WordsPerBank * NumWideBanks * WideDataWidth / 8;
 
   localparam int unsigned WideToNarrowFactor = WideDataWidth / NarrowDataWidth;

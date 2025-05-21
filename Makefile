@@ -9,6 +9,8 @@ MEMORY_ISLAND_ROOT := $(CURDIR)
 BENDER ?= bender -d $(MEMORY_ISLAND_ROOT)
 
 VSIM ?= vsim
+VCS ?= vcs
+VLOGAN ?= vlogan
 
 scripts/compile.tcl: Bender.yml Bender.lock
 	$(BENDER) script vsim -t test --vlog-arg="-svinputport=compat" > $@
@@ -30,9 +32,6 @@ NONFREE_COMMIT ?= master
 nonfree-init:
 	git clone $(NONFREE_REMOTE) $(MEMORY_ISLAND_ROOT)/nonfree
 	cd nonfree && git checkout $(NONFREE_COMMIT)
-$(MEMORY_ISLAND_ROOT)/build/compile-vcs: $(MEMORY_ISLAND_ROOT)/build
-	$(BENDER) script vcs -t test --vlog-arg="$(VLOGAN_ARGS)" > $@
-	chmod +x $@
 
 -include $(MEMORY_ISLAND_ROOT)/nonfree/nonfree.mk
 
@@ -49,10 +48,14 @@ VLOGAN_ARGS += -full64 -q -ntb_opts uvm -kdb -nc -assert svaext +v2k -timescale=
 $(MEMORY_ISLAND_ROOT)/build:
 	mkdir -p $@
 
+$(MEMORY_ISLAND_ROOT)/build/compile-vcs: $(MEMORY_ISLAND_ROOT)/build
+	$(BENDER) script vcs -t test --vlog-arg="$(VLOGAN_ARGS)" --vlogan-bin "$(VLOGAN)" > $@
+	chmod +x $@
+
 $(MEMORY_ISLAND_ROOT)/build/vcs.bin: $(MEMORY_ISLAND_ROOT)/build/compile-vcs
 	cd $(MEMORY_ISLAND_ROOT)/build && \
 	sh $< && \
-	vcs -top axi_memory_island_tb $(VCS_FLAGS) -o $@
+	$(VCS) -top axi_memory_island_tb $(VCS_FLAGS) -o $@
 
 .PHONY: test-vcs test-vcs-clean
 test-vcs: $(MEMORY_ISLAND_ROOT)/build/vcs.bin
