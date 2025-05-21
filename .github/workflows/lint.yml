@@ -34,17 +34,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Bender
+        uses: pulp-platform/pulp-actions/bender-install@v2
+        with:
+          version: 0.28.2
+      - name: Get files
+        run: |
+          bender_files=$(bender script flist -n -t test -t memory_island_standalone_synth)
+          bender_files=$(echo $bender_files | tr '\n' ' ')
+          echo $bender_files
+          echo "BENDER_FILES=$bender_files" >> $GITHUB_ENV
       - name: Print fix
         run: |
-          echo "Fix with `make format`"
+          echo "Fix with \`make format\`"
       - name: Run Verible formatter action
         uses: chipsalliance/verible-formatter-action@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           files:
-            ./src/*.sv
-            ./test/*.sv
-            ./test/synth/*.sv
+            $BENDER_FILES
           parameters:
             --flagfile .verilog_format
           fail_on_formatting_suggestions: true

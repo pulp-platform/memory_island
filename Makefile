@@ -33,6 +33,8 @@ nonfree-init:
 
 -include $(MEMORY_ISLAND_ROOT)/nonfree/nonfree.mk
 
+BENDER_FILES := $(shell $(BENDER) script flist -n -t test -t memory_island_standalone_synth)
+
 .PHONY: format
 format:
-	verible-verilog-format ./src/*.sv ./test/*.sv ./test/synth/*.sv --inplace --flagfile .verilog_format
+	verible-verilog-format $(BENDER_FILES) --inplace --flagfile .verilog_format
