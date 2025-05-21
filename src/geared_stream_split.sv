@@ -10,10 +10,10 @@ module geared_stream_split #(
   parameter int unsigned GearRatio = 1,
   parameter type         T         = logic  // Vivado requires a default value for type parameters.
 ) (
-  input  logic                 clk_i,          // Clock
-  input  logic                 geared_clk_i,   // Geared Clock
-  input  logic                 rst_ni,         // Asynchronous active-low reset
-  input  logic                 clr_i,          // Synchronous clear
+  input  logic                 clk_i,           // Clock
+  input  logic                 geared_clk_i,    // Geared Clock
+  input  logic                 rst_ni,          // Asynchronous active-low reset
+  input  logic                 clr_i,           // Synchronous clear
   // Input port
   input  logic                 valid_i,
   output logic                 ready_o,
@@ -25,32 +25,32 @@ module geared_stream_split #(
   output T     [GearRatio-1:0] data_o
 );
 
-  if (GearRatio < 1) begin
+  if (GearRatio < 1) begin : gen_ratio_0_err
     $fatal(1, "Gear Ratio < 1 not supported!");
-  end else if (GearRatio == 1) begin
-    assign valid_o = valid_i;
-    assign ready_o = ready_i;
-    assign data_o = data_i;
+  end else if (GearRatio == 1) begin : gen_ratio_1
+    assign valid_o        = valid_i;
+    assign ready_o        = ready_i;
+    assign data_o         = data_i;
     assign selected_reg_o = 1'b1;
-  end else begin
+  end else begin : gen_ration_n
     logic [GearRatio-1:0] reg_active_d, reg_active;
     logic [GearRatio-1:0] ready_out;
     logic [GearRatio-1:0] reg_ena;
 
     // reg_active is high for one cycle for each position during a full geared_clk cycle
     assign reg_active_d[GearRatio-1:1] = reg_active[GearRatio-2:0];
-    assign reg_active_d[0] = reg_active[GearRatio-1];
+    assign reg_active_d[0]             = reg_active[GearRatio-1];
 
-    `FF(reg_active, reg_active_d, {{(GearRatio-1){1'b0}}, 1'b1}, clk_i, rst_ni)
+    `FF(reg_active, reg_active_d, {{(GearRatio - 1) {1'b0}}, 1'b1}, clk_i, rst_ni)
 
     assign selected_reg_o = reg_active;
 
-    assign ready_o = |ready_out;
+    assign ready_o        = |ready_out;
 
-    for (genvar i = 0; i < GearRatio; i++) begin
+    for (genvar i = 0; i < GearRatio; i++) begin : gen_gearing
 
       assign ready_out[i] = (ready_i[i] | ~valid_o[i]) & reg_active[i];
-      assign reg_ena[i] = valid_i & ready_out[i];
+      assign reg_ena[i]   = valid_i & ready_out[i];
 
       // only active once during each geared_clk cycle
       `FFLARNC(valid_o[i], valid_i, ready_out[i], clr_i, 1'b0, clk_i, rst_ni)

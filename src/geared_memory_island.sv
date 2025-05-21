@@ -44,6 +44,7 @@ module geared_memory_island #(
 
   parameter bit          InternalCombRspReq   = 1'b1,
 
+  // verilog_lint: waive explicit-parameter-storage-type
   parameter              MemorySimInit        = "none",
 
   // Derived, DO NOT OVERRIDE
@@ -174,8 +175,8 @@ module geared_memory_island #(
       .data_o         ( narrow_mem_req_geared[i] )
     );
 
-    for (genvar j = 0; j < GearRatio; j++) begin
-      localparam id = i*GearRatio + j;
+    for (genvar j = 0; j < GearRatio; j++) begin : gen_narrow_gearing_inner
+      localparam int unsigned id = i*GearRatio + j;
       assign narrow_req_entry_geared   [id]   = narrow_req_geared         [i][j];
       assign narrow_gnt_geared         [i][j] = narrow_gnt_entry_geared   [id];
       assign narrow_addr_entry_geared  [id]   = narrow_mem_req_geared     [i][j].addr;
@@ -259,8 +260,8 @@ module geared_memory_island #(
       .data_o         ( wide_mem_req_geared[i] )
     );
 
-    for (genvar j = 0; j < GearRatio; j++) begin
-      localparam id = i*GearRatio + j;
+    for (genvar j = 0; j < GearRatio; j++) begin : gen_wide_gearing_inner
+      localparam int unsigned id = i*GearRatio + j;
       assign wide_req_entry_geared   [id]   = wide_req_geared         [i][j];
       assign wide_gnt_geared         [i][j] = wide_gnt_entry_geared   [id];
       assign wide_addr_entry_geared  [id]   = wide_mem_req_geared     [i][j].addr;
