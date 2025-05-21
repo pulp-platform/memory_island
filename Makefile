@@ -32,3 +32,9 @@ nonfree-init:
 	cd nonfree && git checkout $(NONFREE_COMMIT)
 
 -include $(MEMORY_ISLAND_ROOT)/nonfree/nonfree.mk
+
+BENDER_FILES := $(shell $(BENDER) script flist -n -t test -t memory_island_standalone_synth)
+
+.PHONY: format
+format:
+	verible-verilog-format $(BENDER_FILES) --inplace --flagfile .verilog_format

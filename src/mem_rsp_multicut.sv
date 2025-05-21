@@ -10,8 +10,8 @@ module mem_rsp_multicut #(
   /// Number of cuts
   parameter int unsigned NumCuts   = 0
 ) (
-  input  logic clk_i,
-  input  logic rst_ni,
+  input logic clk_i,
+  input logic rst_ni,
 
   // mem interface inputs
   input  logic                 rvalid_i,
@@ -29,29 +29,29 @@ module mem_rsp_multicut #(
     assign rready_o = rready_i;
     assign rdata_o  = rdata_i;
   end else begin : gen_cuts
-    logic [NumCuts:0][DataWidth-1:0]  data_agg;
+    logic [NumCuts:0][DataWidth-1:0] data_agg;
     logic [NumCuts:0] rvalid, rready;
 
-    assign data_agg    [0] = rdata_i;
-    assign rvalid      [0] = rvalid_i;
+    assign data_agg[0]     = rdata_i;
+    assign rvalid[0]       = rvalid_i;
     assign rready_o        = rready[0];
     assign rready[NumCuts] = rready_i;
-    assign rvalid_o        = rvalid   [NumCuts];
-    assign rdata_o         = data_agg [NumCuts];
+    assign rvalid_o        = rvalid[NumCuts];
+    assign rdata_o         = data_agg[NumCuts];
 
     for (genvar i = 0; i < NumCuts; i++) begin : gen_cut
       spill_register #(
-        .T     (logic[DataWidth-1:0]),
+        .T     (logic [DataWidth-1:0]),
         .Bypass(1'b0)
       ) i_cut (
         .clk_i,
         .rst_ni,
-        .valid_i ( rvalid  [i  ] ),
-        .ready_o ( rready  [i  ] ),
-        .data_i  ( data_agg[i  ] ),
-        .valid_o ( rvalid  [i+1] ),
-        .ready_i ( rready  [i+1] ),
-        .data_o  ( data_agg[i+1] )
+        .valid_i(rvalid[i]),
+        .ready_o(rready[i]),
+        .data_i (data_agg[i]),
+        .valid_o(rvalid[i+1]),
+        .ready_i(rready[i+1]),
+        .data_o (data_agg[i+1])
       );
     end
   end
