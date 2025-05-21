@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: SHL-0.51
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
+// Moritz Scherer <moritz@mosaic-soc.com>
 
 module axi_memory_island_wrap #(
   /// Address Width
@@ -51,13 +52,15 @@ module axi_memory_island_wrap #(
   parameter int unsigned WidePriorityWait = 1,
 
   /// Banking Factor for the Wide Ports (power of 2)
-  parameter int unsigned NumWideBanks  = (1 << $clog2(NumWideReq)) * 2 * 2,
+  parameter int unsigned NumWideBanks      = (1 << $clog2(NumWideReq)) * 2 * 2,
   /// Extra multiplier for the Narrow banking factor (baseline is WideWidth/NarrowWidth) (power of 2)
-  parameter int unsigned NarrowExtraBF = 1,
+  parameter int unsigned NarrowExtraBF     = 1,
   /// Words per memory bank. (Total number of banks is (WideWidth/NarrowWidth)*NumWideBanks)
-  parameter int unsigned WordsPerBank  = 1024,
+  parameter int unsigned WordsPerBank      = 1024,
   // verilog_lint: waive explicit-parameter-storage-type
-  parameter              MemorySimInit = "none"
+  parameter              MemorySimInit     = "none",
+  /// Number of cycles a memory macro takes to respond to a read request
+  parameter int unsigned BankAccessLatency = 1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -68,7 +71,8 @@ module axi_memory_island_wrap #(
   input  axi_wide_req_t [NumWideReq-1:0] axi_wide_req_i,
   output axi_wide_rsp_t [NumWideReq-1:0] axi_wide_rsp_o
 );
-
+  localparam int unsigned NWDivisor = WideDataWidth / NarrowDataWidth;
+  localparam int unsigned BankAddrMemWidth = $clog2(WordsPerBank);
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth / 8;
   localparam int unsigned WideStrbWidth = WideDataWidth / 8;
 
@@ -81,7 +85,7 @@ module axi_memory_island_wrap #(
                                                 SpillRspBank +
                                                 SpillNarrowRspRouted +
                                                 SpillNarrowRspEntry +
-                                                1;
+                                                BankAccessLatency;
   localparam int unsigned  WideMemRspLatency = SpillWideReqEntry +
                                                SpillWideReqRouted +
                                                SpillWideReqSplit +
@@ -90,7 +94,7 @@ module axi_memory_island_wrap #(
                                                SpillWideRspSplit +
                                                SpillWideRspRouted +
                                                SpillWideRspEntry +
-                                               1;
+                                               BankAccessLatency;
 
   logic [InternalNumNarrow-1:0]                      narrow_req;
   logic [InternalNumNarrow-1:0]                      narrow_gnt;
@@ -206,7 +210,7 @@ module axi_memory_island_wrap #(
         .axi_req_t   (axi_wide_req_t),
         .axi_resp_t  (axi_wide_rsp_t),
         .AddrWidth   (AddrWidth),
-        .AxiDataWidth(WideDataWidth),
+        .DataWidth   (WideDataWidth),
         .IdWidth     (AxiWideIdWidth),
         .NumBanks    (1),
         .BufDepth    (1 + WideMemRspLatency),
@@ -254,7 +258,8 @@ module axi_memory_island_wrap #(
     .SpillReqBank        (SpillReqBank),
     .SpillRspBank        (SpillRspBank),
     .WidePriorityWait    (WidePriorityWait),
-    .MemorySimInit       (MemorySimInit)
+    .MemorySimInit       (MemorySimInit),
+    .BankAccessLatency   (BankAccessLatency)
   ) i_memory_island (
     .clk_i,
     .rst_ni,

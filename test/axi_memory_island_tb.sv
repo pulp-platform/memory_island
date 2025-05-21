@@ -11,21 +11,22 @@
 `include "common_cells/assertions.svh"
 
 module axi_memory_island_tb #(
-  parameter int unsigned AddrWidth       = 32,
-  parameter int unsigned NarrowDataWidth = 32,
-  parameter int unsigned WideDataWidth   = 512,
-  parameter int unsigned AxiIdWidth      = 2,
-  parameter int unsigned AxiUserWidth    = 1,
-  parameter int unsigned NumNarrowReq    = 4,
-  parameter int unsigned NumWideReq      = 2,
-  parameter int unsigned NumWideBanks    = 8,
-  parameter int unsigned NarrowExtraBF   = 2,
-  parameter int unsigned WordsPerBank    = 512 * NumNarrowReq * NumWideReq,
-  parameter int unsigned TbNumReads      = 200,
-  parameter int unsigned TbNumWrites     = 200,
-  parameter time         CyclTime        = 10ns,
-  parameter time         ApplTime        = 2ns,
-  parameter time         TestTime        = 8ns,
+  parameter int unsigned AddrWidth         = 32,
+  parameter int unsigned NarrowDataWidth   = 32,
+  parameter int unsigned WideDataWidth     = 512,
+  parameter int unsigned AxiIdWidth        = 2,
+  parameter int unsigned AxiUserWidth      = 1,
+  parameter int unsigned NumNarrowReq      = 4,
+  parameter int unsigned NumWideReq        = 2,
+  parameter int unsigned NumWideBanks      = 8,
+  parameter int unsigned NarrowExtraBF     = 2,
+  parameter int unsigned WordsPerBank      = 512 * NumNarrowReq * NumWideReq,
+  parameter int unsigned TbNumReads        = 200,
+  parameter int unsigned TbNumWrites       = 200,
+  parameter int unsigned BankAccessLatency = 2,
+  parameter time         CyclTime          = 10ns,
+  parameter time         ApplTime          = 2ns,
+  parameter time         TestTime          = 8ns,
 
   localparam int unsigned TestRegionStart = 0,
   localparam int unsigned TestRegionEnd   = 16384
@@ -609,10 +610,11 @@ module axi_memory_island_tb #(
     .SpillRspBank    (0),
     .WidePriorityWait(3),
 
-    .NumWideBanks (NumWideBanks),
-    .NarrowExtraBF(NarrowExtraBF),
-    .WordsPerBank (WordsPerBank),
-    .MemorySimInit("zeros")
+    .NumWideBanks     (NumWideBanks),
+    .NarrowExtraBF    (NarrowExtraBF),
+    .WordsPerBank     (WordsPerBank),
+    .MemorySimInit    ("zeros"),
+    .BankAccessLatency(BankAccessLatency)
   ) i_dut (
     .clk_i           (clk),
     .rst_ni          (rst_n),

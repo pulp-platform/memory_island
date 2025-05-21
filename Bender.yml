@@ -6,6 +6,7 @@ package:
   name: memory_island
   authors:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
+    - "Moritz Scherer <moritz@mosaic-soc.com>"
 
 dependencies:
   common_cells:         { git: "https://github.com/pulp-platform/common_cells.git",         version: 1.37.0 }
