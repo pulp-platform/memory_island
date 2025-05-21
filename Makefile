@@ -30,6 +30,9 @@ NONFREE_COMMIT ?= master
 nonfree-init:
 	git clone $(NONFREE_REMOTE) $(MEMORY_ISLAND_ROOT)/nonfree
 	cd nonfree && git checkout $(NONFREE_COMMIT)
+$(MEMORY_ISLAND_ROOT)/build/compile-vcs: $(MEMORY_ISLAND_ROOT)/build
+	$(BENDER) script vcs -t test --vlog-arg="$(VLOGAN_ARGS)" > $@
+	chmod +x $@
 
 -include $(MEMORY_ISLAND_ROOT)/nonfree/nonfree.mk
 
@@ -38,3 +41,23 @@ BENDER_FILES := $(shell $(BENDER) script flist -n -t test -t memory_island_stand
 .PHONY: format
 format:
 	verible-verilog-format $(BENDER_FILES) --inplace --flagfile .verilog_format
+
+
+VCS_FLAGS ?= -full64 -nc -ignore initializer_driver_checks -assert disable_cover -kdb -Mlib=$(VCS_BUILDDIR)
+VLOGAN_ARGS += -full64 -q -ntb_opts uvm -kdb -nc -assert svaext +v2k -timescale=1ps/1ps -incr_vlogan $(TRACE_FLAGS_VCS)
+
+$(MEMORY_ISLAND_ROOT)/build:
+	mkdir -p $@
+
+$(MEMORY_ISLAND_ROOT)/build/vcs.bin: $(MEMORY_ISLAND_ROOT)/build/compile-vcs
+	cd $(MEMORY_ISLAND_ROOT)/build && \
+	sh $< && \
+	vcs -top axi_memory_island_tb $(VCS_FLAGS) -o $@
+
+.PHONY: test-vcs test-vcs-clean
+test-vcs: $(MEMORY_ISLAND_ROOT)/build/vcs.bin
+	cd $(MEMORY_ISLAND_ROOT)/build && \
+	$<
+
+test-vcs-clean:
+	rm -rf $(MEMORY_ISLAND_ROOT)/build

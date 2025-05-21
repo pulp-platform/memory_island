@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: SHL-0.51
 
 // Michael Rogenmoser <michaero@iis.ee.ethz.ch>
+// Moritz Scherer <moritz@mosaic-soc.com>
 
 `include "axi/typedef.svh"
 `include "axi/assign.svh"
+
+`include "common_cells/assertions.svh"
 
 module axi_memory_island_tb #(
   parameter int unsigned AddrWidth       = 32,
@@ -19,29 +22,35 @@ module axi_memory_island_tb #(
   parameter int unsigned NarrowExtraBF   = 2,
   parameter int unsigned WordsPerBank    = 512 * NumNarrowReq * NumWideReq,
   parameter int unsigned TbNumReads      = 200,
-  parameter int unsigned TbNumWrites     = 200
+  parameter int unsigned TbNumWrites     = 200,
+  parameter time         CyclTime        = 10ns,
+  parameter time         ApplTime        = 2ns,
+  parameter time         TestTime        = 8ns,
+
+  localparam int unsigned TestRegionStart = 0,
+  localparam int unsigned TestRegionEnd   = 16384
 ) ();
 
-  parameter time CyclTime = 10ns;
-  parameter time ApplTime = 2ns;
-  parameter time TestTime = 8ns;
-
+  localparam int unsigned TotalNumberOfWords = WordsPerBank * NumWideBanks * WideDataWidth / NarrowDataWidth;
   localparam int unsigned TotalBytes = WordsPerBank * NumWideBanks * WideDataWidth / 8;
+
+  localparam int unsigned WideToNarrowFactor = WideDataWidth / NarrowDataWidth;
+
   localparam int unsigned UsableAddrWidth = $clog2(TotalBytes);
 
   localparam int unsigned TotalReq = NumNarrowReq + NumWideReq;
-
   localparam int unsigned TxInFlight = 16;  // pow2
+
+  `ASSERT_INIT(TestRegionFits, TestRegionEnd <= WordsPerBank * NumWideBanks * WideDataWidth / 8)
+  `ASSERT_INIT(TestAfterAppl, ApplTime < TestTime)
+  `ASSERT_INIT(CycleTiming, ApplTime < CyclTime && TestTime < CyclTime)
+
 
   logic clk, rst_n;
 
   logic [TotalReq-1:0] random_mem_filled;
   logic [TotalReq-1:0] end_of_sim;
   logic [TotalReq-1:0] mismatch;
-
-
-  localparam int unsigned TestRegionStart = 0;
-  localparam int unsigned TestRegionEnd = 16384;
 
   // Clock/Reset generation
   clk_rst_gen #(
@@ -174,21 +183,50 @@ module axi_memory_island_tb #(
 
   addr_range_t [TotalReq-1:0] tmp_read, tmp_write;
 
-  int read_len [TotalReq][2**AxiIdWidth];
-  int write_len[TotalReq][2**AxiIdWidth];
-
-  // Get sizes for debug purposes
-  for (genvar i = 0; i < TotalReq; i++) begin : gen_len_req
-    for (genvar j = 0; j < 2 ** AxiIdWidth; j++) begin : gen_len_axi_id
-      assign read_len[i][j]  = $size(regions_being_read[i][j]);
-      assign write_len[i][j] = $size(regions_being_written[i][j]);
-    end
-  end
+  int                         read_len    [TotalReq][2**AxiIdWidth];
+  int                         write_len   [TotalReq][2**AxiIdWidth];
 
   addr_range_t [TotalReq-1:0] write_range;
   addr_range_t [TotalReq-1:0] read_range;
 
   logic [TotalReq-1:0] aw_hs, ar_hs;
+
+
+  // Moritz: Can't use an always_comb block here, since queue updates do NOT trigger signal updates, so fully spec-compliant simulators will not reevaluate the assignments.
+  // Store both narrow and wide in-flight address ranges into a queue;
+  // Doing queue updates and recomputing read_len / write_len avoids timing bugs.
+  always @(posedge clk) begin
+    for (int i = 0; i < TotalReq; i++) begin : gen_len_req
+
+      for (int id = 0; id < 2 ** AxiIdWidth; id++) begin
+        // push write queue on actual AW
+        if (aw_hs[i] && axi_narrow_req[i].aw.id == id) begin
+          regions_being_written[i][id].push_back(write_range[i]);
+          // $display("writing to [%x, %x]", write_range[i].start_addr, write_range[i].end_addr);
+        end
+        // pop write queue on B
+        if (axi_narrow_rsp[i].b_valid      &&
+            filtered_narrow_req[i].b_ready &&
+            axi_narrow_rsp[i].b.id == id      ) begin
+          tmp_write[i] = regions_being_written[i][id].pop_front();
+          // $display("done writing [%x, %x]",tmp_write[i].start_addr, tmp_write[i].end_addr);
+        end
+        // push read queue on actual AR
+        if (ar_hs[i] && axi_narrow_req[i].ar.id == id) begin
+          regions_being_read[i][id].push_back(read_range[i]);
+          // $display("reading from [%x, %x]", read_range[i].start_addr, read_range[i].end_addr);
+        end
+        // pop read queue on last R
+        if (axi_narrow_rsp[i].r_valid && filtered_narrow_req[i].r_ready &&
+            axi_narrow_rsp[i].r.last && axi_narrow_rsp[i].r.id == id      ) begin
+          tmp_read[i] = regions_being_read[i][id].pop_front();
+          // $display("done reading [%x, %x]",tmp_read[i].start_addr, tmp_read[i].end_addr);
+        end
+        read_len[i][id]  = regions_being_read[i][id].size();
+        write_len[i][id] = regions_being_written[i][id].size();
+      end
+    end
+  end
 
   logic [TotalReq-1:0][TotalReq-1:0][2**AxiIdWidth-1:0][TxInFlight-1:0]
       write_overlapping_write, write_overlapping_read, read_overlapping_write;
@@ -230,67 +268,32 @@ module axi_memory_island_tb #(
     assign aw_hs[i] = filtered_narrow_req[i].aw_valid && axi_narrow_rsp[i].aw_ready;
     assign ar_hs[i] = filtered_narrow_req[i].ar_valid && axi_narrow_rsp[i].ar_ready;
 
-    // Store in-flight address ranges into a queue
-    always @(posedge clk) begin
-      for (int id = 0; id < 2 ** AxiIdWidth; id++) begin
-        // push write queue on actual AW
-        if (aw_hs[i] && axi_narrow_req[i].aw.id == id) begin
-          regions_being_written[i][id].push_back(write_range[i]);
-          // $display("writing to [%x, %x]", write_range[i].start_addr, write_range[i].end_addr);
-        end
-        // pop write queue on B
-        if (axi_narrow_rsp[i].b_valid      &&
-            filtered_narrow_req[i].b_ready &&
-            axi_narrow_rsp[i].b.id == id      ) begin
-          tmp_write[i] = regions_being_written[i][id].pop_front();
-          // $display("done writing [%x, %x]",tmp_write[i].start_addr, tmp_write[i].end_addr);
-        end
-        // push read queue on actual AR
-        if (ar_hs[i] && axi_narrow_req[i].ar.id == id) begin
-          regions_being_read[i][id].push_back(read_range[i]);
-          // $display("reading from [%x, %x]", read_range[i].start_addr, read_range[i].end_addr);
-        end
-        // pop read queue on last R
-        if (axi_narrow_rsp[i].r_valid && filtered_narrow_req[i].r_ready &&
-            axi_narrow_rsp[i].r.last && axi_narrow_rsp[i].r.id == id      ) begin
-          tmp_read[i] = regions_being_read[i][id].pop_front();
-          // $display("done reading [%x, %x]",tmp_read[i].start_addr, tmp_read[i].end_addr);
-        end
-      end
-    end
+    always_comb begin
+      for (int requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
+        for (int axiIdx = 0; axiIdx < 2 ** AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
+          for (int txIdx = 0; txIdx < TxInFlight; txIdx++) begin : gen_overlap_check_txns
 
-    for (genvar requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
-      for (genvar axiIdx = 0; axiIdx < 2 ** AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
-        for (genvar txIdx = 0; txIdx < TxInFlight; txIdx++) begin : gen_overlap_check_txns
-          // Block write if overlapping region is already being written
-          assign write_overlapping_write[i][requestIdx][axiIdx][txIdx] =
+            // Block write if overlapping region is already being written
+            write_overlapping_write[i][requestIdx][axiIdx][txIdx] =
             txIdx < write_len[requestIdx][axiIdx] ?
-              check_overlap(
-              write_range[i], regions_being_written[requestIdx][axiIdx][txIdx]
-          ) : '0;
-          // Block reads if overlapping region is already being written
-          assign read_overlapping_write[i][requestIdx][axiIdx][txIdx]  =
+              check_overlap(write_range[i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
+            // Block reads if overlapping region is already being written
+            read_overlapping_write[i][requestIdx][axiIdx][txIdx]  =
             txIdx < write_len[requestIdx][axiIdx] ?
-              check_overlap(
-              read_range[i], regions_being_written[requestIdx][axiIdx][txIdx]
-          ) : '0;
-          // Block write if overlapping region is already being read
-          assign write_overlapping_read[i][requestIdx][axiIdx][txIdx]  =
+              check_overlap(read_range[i], regions_being_written[requestIdx][axiIdx][txIdx]) : '0;
+            // Block write if overlapping region is already being read
+            write_overlapping_read[i][requestIdx][axiIdx][txIdx]  =
             txIdx < read_len[requestIdx][axiIdx] ?
-              check_overlap(
-              write_range[i], regions_being_read[requestIdx][axiIdx][txIdx]
-          ) : '0;
+              check_overlap(write_range[i], regions_being_read[requestIdx][axiIdx][txIdx]) : '0;
+          end
         end
+        live_write_overlapping_write[i][requestIdx] =
+            check_overlap(write_range[i], write_range[requestIdx]);
+        live_write_overlapping_read[i][requestIdx] =
+            check_overlap(write_range[i], read_range[requestIdx]);
+        live_read_overlapping_write[i][requestIdx] =
+            check_overlap(read_range[i], write_range[requestIdx]);
       end
-      assign live_write_overlapping_write[i][requestIdx] = check_overlap(
-          write_range[i], write_range[requestIdx]
-      );
-      assign live_write_overlapping_read[i][requestIdx] = check_overlap(
-          write_range[i], read_range[requestIdx]
-      );
-      assign live_read_overlapping_write[i][requestIdx] = check_overlap(
-          read_range[i], write_range[requestIdx]
-      );
     end
 
     always_comb begin : proc_filter_narrow
@@ -330,7 +333,7 @@ module axi_memory_island_tb #(
         // check other ports
         for (int j = 0; j <= i; j++) begin
           // Block read if overlapping region is starting to be written by lower or same ID
-          if ((live_write_overlapping_write[i][j] && aw_hs[j])) begin
+          if ((live_read_overlapping_write[i][j] && aw_hs[j])) begin
             filtered_narrow_req[i].ar_valid = 1'b0;
             axi_narrow_rsp[i].ar_ready      = 1'b0;
             blocking_read[i]                = 1'b1;
@@ -446,38 +449,34 @@ module axi_memory_island_tb #(
       end
     end
 
-    for (genvar requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
-      for (genvar axiIdx = 0; axiIdx < 2 ** AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
-        for (genvar txIdx = 0; txIdx < TxInFlight; txIdx++) begin : gen_overlap_check_txns
-          // Block write if overlapping region is already being written
-          assign write_overlapping_write[ReqIdx][requestIdx][axiIdx][txIdx] =
+    always_comb begin
+      for (int requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
+        for (int axiIdx = 0; axiIdx < 2 ** AxiIdWidth; axiIdx++) begin : gen_overlap_check_ids
+          for (int txIdx = 0; txIdx < TxInFlight; txIdx++) begin : gen_overlap_check_txns
+            // Block write if overlapping region is already being written
+            write_overlapping_write[ReqIdx][requestIdx][axiIdx][txIdx] =
             txIdx < write_len[requestIdx][axiIdx] ?
-              check_overlap(
-              write_range[ReqIdx], regions_being_written[requestIdx][axiIdx][txIdx]
-          ) : '0;
-          // Block reads if overlapping region is already being written
-          assign read_overlapping_write[ReqIdx][requestIdx][axiIdx][txIdx]  =
+              check_overlap(write_range[ReqIdx], regions_being_written[requestIdx][axiIdx][txIdx]) :
+                '0;
+            // Block reads if overlapping region is already being written
+            read_overlapping_write[ReqIdx][requestIdx][axiIdx][txIdx]  =
             txIdx < write_len[requestIdx][axiIdx] ?
-              check_overlap(
-              read_range[ReqIdx], regions_being_written[requestIdx][axiIdx][txIdx]
-          ) : '0;
-          // Block write if overlapping region is already being read
-          assign write_overlapping_read[ReqIdx][requestIdx][axiIdx][txIdx]  =
+              check_overlap(read_range[ReqIdx], regions_being_written[requestIdx][axiIdx][txIdx]) :
+                '0;
+            // Block write if overlapping region is already being read
+            write_overlapping_read[ReqIdx][requestIdx][axiIdx][txIdx]  =
             txIdx < read_len[requestIdx][axiIdx] ?
-              check_overlap(
-              write_range[ReqIdx], regions_being_read[requestIdx][axiIdx][txIdx]
-          ) : '0;
+              check_overlap(write_range[ReqIdx], regions_being_read[requestIdx][axiIdx][txIdx]) :
+                '0;
+          end
         end
-      end
-      assign live_write_overlapping_write[ReqIdx][requestIdx] = check_overlap(
-          write_range[ReqIdx], write_range[requestIdx]
-      );
-      assign live_write_overlapping_read[ReqIdx][requestIdx] = check_overlap(
-          write_range[ReqIdx], read_range[requestIdx]
-      );
-      assign live_read_overlapping_write[ReqIdx][requestIdx] = check_overlap(
-          read_range[ReqIdx], write_range[requestIdx]
-      );
+        live_write_overlapping_write[ReqIdx][requestIdx] =
+            check_overlap(write_range[ReqIdx], write_range[requestIdx]);
+        live_write_overlapping_read[ReqIdx][requestIdx] =
+            check_overlap(write_range[ReqIdx], read_range[requestIdx]);
+        live_read_overlapping_write[ReqIdx][requestIdx] =
+            check_overlap(read_range[ReqIdx], write_range[requestIdx]);
+      end  // block: gen_overlap_check_reqs
     end
 
     always_comb begin : proc_filter_wide
@@ -517,7 +516,7 @@ module axi_memory_island_tb #(
         // check other ports
         for (int j = 0; j <= ReqIdx; j++) begin
           // Block read if overlapping region is starting to be written by lower or same ID
-          if ((live_write_overlapping_write[ReqIdx][j] && aw_hs[j])) begin
+          if ((live_read_overlapping_write[ReqIdx][j] && aw_hs[j])) begin
             filtered_wide_req[i].ar_valid = 1'b0;
             axi_wide_rsp[i].ar_ready      = 1'b0;
             blocking_read[ReqIdx]         = 1'b1;
@@ -695,12 +694,22 @@ module axi_memory_island_tb #(
 
   int unsigned errors;
 
+  // Function with fixed width vector
+  function automatic int count_xs(input logic [TotalReq-1:0] vec);
+    int count = 0;
+    for (int i = 0; i < TotalReq; i++) begin
+      if (vec[i] === 1'bx) count++;
+    end
+    return count;
+  endfunction
+
   // TB ctrl
   initial begin
     errors = 0;
     do begin
       #TestTime;
       errors += $countones(mismatch);
+      errors += count_xs(mismatch);
       if (end_of_sim == '1) begin
         $display("Counted %d errors.", errors);
         $finish(errors);
