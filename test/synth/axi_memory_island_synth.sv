@@ -10,13 +10,13 @@
 module axi_memory_island_synth #(
   localparam int unsigned AddrWidth       = 32,
   localparam int unsigned NarrowDataWidth = 32,
-  localparam int unsigned WideDataWidth   = 512,
+  localparam int unsigned WideDataWidth   = 256,
 
   localparam int unsigned AxiIdWidth = 3,
 
-  localparam int unsigned NumNarrowReq = 5,
-  localparam int unsigned NumWideReq   = 4,
-  localparam int unsigned NumWideBanks = 4,
+  localparam int unsigned NumNarrowReq = 4,
+  localparam int unsigned NumWideReq   = 1,
+  localparam int unsigned NumWideBanks = 8,
   localparam int unsigned WordsPerBank = 8192
 ) (
   input logic clk_i,

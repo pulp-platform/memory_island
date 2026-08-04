@@ -195,6 +195,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] wide_rdata_bank_spill;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] req_bank;
+  logic [NumWideBanks-1:0][NWDivisor-1:0] gnt_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][BankAddrMemWidth-1:0] addr_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0] we_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] wdata_bank;
@@ -202,6 +203,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] rdata_bank;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] req_bank_spill;
+  logic [NumWideBanks-1:0][NWDivisor-1:0] gnt_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0][BankAddrMemWidth-1:0] addr_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0] we_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] wdata_bank_spill;
@@ -369,22 +371,17 @@ module memory_island_core #(
 
   localparam int unsigned NarrowWideBankSelWidth = AddrWideBankBit - AddrNarrowWideBit;
 
-  if (WidePriorityWait == 0) begin : gen_narrow_static_gnt
-    // narrow gnt always set
-    assign narrow_gnt_routed_spill = '1;
-  end else begin : gen_narrow_gnt
-    for (
-        genvar extraFactor = 0; extraFactor < NarrowExtraBF; extraFactor++
-    ) begin : gen_narrow_gnt_l1
-      for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_gnt_l2
-        localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
-        always_comb begin
-          narrow_gnt_routed_spill[(extraFactor*NWDivisor)+subBank] = '0;
-          for (int wideBank = 0; wideBank < TotalBanks / WidePseudoBanks; wideBank++) begin
-            if (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank) begin
-              narrow_gnt_routed_spill[PseudoIdx] =
-                  narrow_gnt_bank[(wideBank*NarrowExtraBF)+extraFactor][subBank];
-            end
+  for (
+      genvar extraFactor = 0; extraFactor < NarrowExtraBF; extraFactor++
+  ) begin : gen_narrow_gnt_l1
+    for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_gnt_l2
+      localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
+      always_comb begin
+        narrow_gnt_routed_spill[PseudoIdx] = '0;
+        for (int wideBank = 0; wideBank < TotalBanks / WidePseudoBanks; wideBank++) begin
+          if (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank) begin
+            narrow_gnt_routed_spill[PseudoIdx] =
+                narrow_gnt_bank[(wideBank*NarrowExtraBF)+extraFactor][subBank];
           end
         end
       end
@@ -614,8 +611,8 @@ module memory_island_core #(
 
       // narrow/wide priority arbitration
       assign req_bank[i][j] = narrow_req_bank[i][j] | wide_req_bank_spill[i][j];
-      assign narrow_gnt_bank[i][j] = narrow_priority_req[i][j];
-      assign wide_gnt_bank_spill[i][j] = ~narrow_priority_req[i][j];
+      assign narrow_gnt_bank[i][j] = narrow_priority_req[i][j] & gnt_bank[i][j];
+      assign wide_gnt_bank_spill[i][j] = ~narrow_priority_req[i][j] & gnt_bank[i][j];
       assign we_bank[i][j] = narrow_priority_req[i][j] ? narrow_we_bank[i][j] :
           wide_we_bank_spill[i][j];
       assign addr_bank[i][j] = narrow_priority_req[i][j] ? narrow_addr_bank[i][j] :
@@ -636,14 +633,14 @@ module memory_island_core #(
         .rst_ni,
 
         .req_i  (req_bank[i][j]),
-        .gnt_o  (),
+        .gnt_o  (gnt_bank[i][j]),
         .addr_i (addr_bank[i][j]),
         .we_i   (we_bank[i][j]),
         .wdata_i(wdata_bank[i][j]),
         .strb_i (strb_bank[i][j]),
 
         .req_o  (req_bank_spill[i][j]),
-        .gnt_i  (1'b1),
+        .gnt_i  (gnt_bank_spill[i][j]),
         .addr_o (addr_bank_spill[i][j]),
         .we_o   (we_bank_spill[i][j]),
         .wdata_o(wdata_bank_spill[i][j]),
@@ -667,6 +664,18 @@ module memory_island_core #(
       );
 
       // Memory bank
+// `ifdef TARGET_VSIM
+//       always_ff @(posedge clk_i or negedge rst_ni) begin : proc_random_bank_gnt
+//         if (!rst_ni) begin
+//           gnt_bank_spill[i][j] <= 1'b1;
+//         end else begin
+//           gnt_bank_spill[i][j] <= $urandom_range(9) != 0;
+//         end
+//       end
+// `else
+      assign gnt_bank_spill[i][j] = 1'b1;
+// `endif
+
       tc_sram #(
         .NumWords (WordsPerBank),
         .DataWidth(NarrowDataWidth),
@@ -677,7 +686,7 @@ module memory_island_core #(
       ) i_bank (
         .clk_i,
         .rst_ni,
-        .req_i  (req_bank_spill[i][j]),
+        .req_i  (req_bank_spill[i][j] & gnt_bank_spill[i][j]),
         .we_i   (we_bank_spill[i][j]),
         .addr_i (addr_bank_spill[i][j]),
         .wdata_i(wdata_bank_spill[i][j]),
