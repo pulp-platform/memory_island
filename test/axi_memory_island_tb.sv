@@ -194,12 +194,12 @@ module axi_memory_island_tb #(
   logic [TotalReq-1:0] aw_hs, ar_hs;
 
 
-  // Moritz: Can't use an always_comb block here, since queue updates do NOT trigger signal updates, so fully spec-compliant simulators will not reevaluate the assignments.
-  // Store both narrow and wide in-flight address ranges into a queue;
-  // Doing queue updates and recomputing read_len / write_len avoids timing bugs.
+  // Moritz: Can't use an always_comb block here, since queue updates do NOT trigger signal
+  // updates, so fully spec-compliant simulators will not reevaluate the assignments.
+  // Store both narrow and wide in-flight address ranges into queues. Keep all queue updates
+  // and the corresponding read_len / write_len recomputation in one process to avoid races.
   always @(posedge clk) begin
-    for (int i = 0; i < TotalReq; i++) begin : gen_len_req
-
+    for (int i = 0; i < NumNarrowReq; i++) begin
       for (int id = 0; id < 2 ** AxiIdWidth; id++) begin
         // push write queue on actual AW
         if (aw_hs[i] && axi_narrow_req[i].aw.id == id) begin
@@ -223,6 +223,37 @@ module axi_memory_island_tb #(
           tmp_read[i] = regions_being_read[i][id].pop_front();
           // $display("done reading [%x, %x]",tmp_read[i].start_addr, tmp_read[i].end_addr);
         end
+      end
+    end
+
+    for (int i = 0; i < NumWideReq; i++) begin
+      int unsigned req_idx;
+      req_idx = NumNarrowReq + i;
+      for (int id = 0; id < 2 ** AxiIdWidth; id++) begin
+        // push write queue on actual AW
+        if (aw_hs[req_idx] && axi_wide_req[i].aw.id == id) begin
+          regions_being_written[req_idx][id].push_back(write_range[req_idx]);
+        end
+        // pop write queue on B
+        if (axi_wide_rsp[i].b_valid && filtered_wide_req[i].b_ready &&
+            axi_wide_rsp[i].b.id == id) begin
+          tmp_write[req_idx] = regions_being_written[req_idx][id].pop_front();
+        end
+        // push read queue on actual AR
+        if (ar_hs[req_idx] && axi_wide_req[i].ar.id == id) begin
+          regions_being_read[req_idx][id].push_back(read_range[req_idx]);
+        end
+        // pop read queue on last R
+        if (axi_wide_rsp[i].r_valid && filtered_wide_req[i].r_ready &&
+            axi_wide_rsp[i].r.last && axi_wide_rsp[i].r.id == id) begin
+          tmp_read[req_idx] = regions_being_read[req_idx][id].pop_front();
+        end
+      end
+    end
+
+    // Recompute queue lengths only after all narrow and wide queue updates have completed.
+    for (int i = 0; i < TotalReq; i++) begin : gen_len_req
+      for (int id = 0; id < 2 ** AxiIdWidth; id++) begin
         read_len[i][id]  = regions_being_read[i][id].size();
         write_len[i][id] = regions_being_written[i][id].size();
       end
@@ -429,26 +460,6 @@ module axi_memory_island_tb #(
 
     assign aw_hs[ReqIdx] = filtered_wide_req[i].aw_valid && axi_wide_rsp[i].aw_ready;
     assign ar_hs[ReqIdx] = filtered_wide_req[i].ar_valid && axi_wide_rsp[i].ar_ready;
-
-    // Store in-flight address ranges into a queue
-    always @(posedge clk) begin
-      // push write queue on actual AW
-      if (aw_hs[ReqIdx]) begin
-        regions_being_written[ReqIdx][axi_wide_req[i].aw.id].push_back(write_range[ReqIdx]);
-      end
-      // pop write queue on B
-      if (axi_wide_rsp[i].b_valid && filtered_wide_req[i].b_ready) begin
-        tmp_write[ReqIdx] = regions_being_written[ReqIdx][axi_wide_rsp[i].b.id].pop_front();
-      end
-      // push read queue on actual AR
-      if (ar_hs[ReqIdx]) begin
-        regions_being_read[ReqIdx][axi_wide_req[i].ar.id].push_back(read_range[ReqIdx]);
-      end
-      // pop read queue on last R
-      if (axi_wide_rsp[i].r_valid && filtered_wide_req[i].r_ready && axi_wide_rsp[i].r.last) begin
-        tmp_read[ReqIdx] = regions_being_read[ReqIdx][axi_wide_rsp[i].r.id].pop_front();
-      end
-    end
 
     always_comb begin
       for (int requestIdx = 0; requestIdx < TotalReq; requestIdx++) begin : gen_overlap_check_reqs
