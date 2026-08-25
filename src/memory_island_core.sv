@@ -211,6 +211,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] rdata_bank_spill;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] narrow_priority_req;
+  // TODO(chenwu): the width would break if WidePriorityWait>=2
   logic [NumWideBanks-1:0][NWDivisor-1:0][cf_math_pkg::idx_width(WidePriorityWait)-1:0]
       wide_priority_d, wide_priority_q;
 
@@ -601,9 +602,13 @@ module memory_island_core #(
             wide_priority_d[i][j] = wide_priority_q[i][j] + 1;
           end
 
-          // if counter has reached max, give wide priority
+          // if counter has reached max, give wide priority;
+          // hold it across gnt stalls (RMW) so the wide is not starved.
+          // TODO(chenwu): dead gnt cycles still count toward narrow's quota, so
+          // wide is promoted earlier than WidePriorityWait implies. Could count
+          // only cycles where both sides request and gnt is high instead.
           if (wide_priority_q[i][j] == WidePriorityWait) begin
-            wide_priority_d[i][j]     = '0;
+            wide_priority_d[i][j]     = gnt_bank[i][j] ? '0 : wide_priority_q[i][j];
             narrow_priority_req[i][j] = '0;
           end
         end
@@ -664,34 +669,32 @@ module memory_island_core #(
       );
 
       // Memory bank
-// `ifdef TARGET_VSIM
-//       always_ff @(posedge clk_i or negedge rst_ni) begin : proc_random_bank_gnt
-//         if (!rst_ni) begin
-//           gnt_bank_spill[i][j] <= 1'b1;
-//         end else begin
-//           gnt_bank_spill[i][j] <= $urandom_range(9) != 0;
-//         end
-//       end
-// `else
-      assign gnt_bank_spill[i][j] = 1'b1;
-// `endif
-
-      tc_sram #(
-        .NumWords (WordsPerBank),
-        .DataWidth(NarrowDataWidth),
-        .ByteWidth(8),
-        .NumPorts (1),
-        .Latency  (BankAccessLatency),
-        .SimInit  (MemorySimInit)
+      ecc_sram #(
+        .NumWords        (WordsPerBank),
+        .UnprotectedWidth(NarrowDataWidth),
+        .InputECC        (1'b0),
+        .NumRMWCuts      (0),
+        .SimInit         (MemorySimInit),
+        .ByteWidth       (8),
+        .BankAccessLatency(BankAccessLatency)
       ) i_bank (
         .clk_i,
         .rst_ni,
-        .req_i  (req_bank_spill[i][j] & gnt_bank_spill[i][j]),
-        .we_i   (we_bank_spill[i][j]),
-        .addr_i (addr_bank_spill[i][j]),
+
+        .scrub_trigger_i      (1'b0),
+        .scrubber_fix_o       (),
+        .scrub_uncorrectable_o(),
+
         .wdata_i(wdata_bank_spill[i][j]),
+        .addr_i (addr_bank_spill[i][j]),
+        .req_i  (req_bank_spill[i][j]),
+        .we_i   (we_bank_spill[i][j]),
         .be_i   (strb_bank_spill[i][j]),
-        .rdata_o(rdata_bank_spill[i][j])
+        .rdata_o(rdata_bank_spill[i][j]),
+        .gnt_o  (gnt_bank_spill[i][j]),
+
+        .single_error_o(),
+        .multi_error_o ()
       );
 
       // Shift reg for wide rvalid
