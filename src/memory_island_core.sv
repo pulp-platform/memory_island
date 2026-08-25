@@ -737,4 +737,40 @@ module memory_island_core #(
     end
   end
 
+  // Assertions
+  // pragma translate_off
+`ifndef VERILATOR
+`ifndef SYNTHESIS
+  localparam int unsigned WideStarveLimit = 64;
+  for (genvar i = 0; i < NumWideBanks; i++) begin : gen_bank_asserts_l1
+    for (genvar j = 0; j < NWDivisor; j++) begin : gen_bank_asserts_l2
+      NarrowReqStable :
+      assert property (@(posedge clk_i) disable iff (!rst_ni)
+          narrow_req_bank[i][j] && !narrow_gnt_bank[i][j] |=> narrow_req_bank[i][j] &&
+              $stable({narrow_addr_bank[i][j], narrow_we_bank[i][j],
+                       narrow_wdata_bank[i][j], narrow_strb_bank[i][j]}))
+      else $error("narrow request at bank %0d.%0d dropped or changed while stalled", i, j);
+
+      WideReqStable :
+      assert property (@(posedge clk_i) disable iff (!rst_ni)
+          wide_req_bank_spill[i][j] && !wide_gnt_bank_spill[i][j] |=> wide_req_bank_spill[i][j] &&
+              $stable({wide_addr_bank_spill[i][j], wide_we_bank_spill[i][j],
+                       wide_wdata_bank_spill[i][j], wide_strb_bank_spill[i][j]}))
+      else $error("wide request at bank %0d.%0d dropped or changed while stalled", i, j);
+
+      logic wide_bank_stalled;
+      assign wide_bank_stalled = wide_req_bank_spill[i][j] && !wide_gnt_bank_spill[i][j];
+
+      WideNoStarve :
+      assert property (@(posedge clk_i) disable iff (!rst_ni)
+          $rose(wide_bank_stalled) |-> not (wide_bank_stalled [* WideStarveLimit]))
+      else
+        $error(
+            "wide request starved at bank %0d.%0d: no gnt for %0d cycles", i, j, WideStarveLimit);
+    end
+  end
+`endif
+`endif
+  // pragma translate_on
+
 endmodule

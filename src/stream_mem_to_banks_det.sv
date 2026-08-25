@@ -225,6 +225,16 @@ module stream_mem_to_banks_det #(
     assume ((DataWidth / NumBanks) % 8 == 0)
     else $fatal(1, "Data width of each bank must be divisible into 8-bit bytes!");
   end
+
+  // The response path cannot be backpressured: a bank_rvalid_i push must
+  // always find FIFO space. This holds as long as outstanding transactions
+  // (bounded by the dead-write FIFO, MaxTrans+1) fit in FifoDepth; report a
+  // violated accounting instead of silently dropping a response.
+  for (genvar i = 0; unsigned'(i) < NumBanks; i++) begin : gen_resp_asserts
+    RespFifoNoOverflow :
+    assert property (@(posedge clk_i) disable iff (!rst_ni) bank_rvalid_i[i] |-> resp_ready[i])
+    else $error("response dropped at bank %0d: rvalid while response FIFO full", i);
+  end
 `endif
 `endif
   // pragma translate_on
