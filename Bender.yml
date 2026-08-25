@@ -14,6 +14,7 @@ dependencies:
   axi:                  { git: "https://github.com/pulp-platform/axi.git",                  version: 0.39.4 }
   cluster_interconnect: { git: "https://github.com/pulp-platform/cluster_interconnect.git", version: 1.3.0  }
   common_verification:  { git: "https://github.com/pulp-platform/common_verification.git",  version: 0.2.0  }
+  redundancy_cells:     { git: "https://github.com/pulp-platform/redundancy_cells.git",     rev: dora }
 
 sources:
   # Level 0
