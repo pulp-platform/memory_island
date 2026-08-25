@@ -28,7 +28,7 @@ module memory_island_core #(
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
-  parameter int unsigned SpillNarrowReqRouted = 0,
+  parameter int unsigned SpillNarrowReqRouted = 0, // assert 0 for fixed latency
   parameter int unsigned SpillNarrowRspRouted = 0,
   /// Spill Wide
   parameter int unsigned SpillWideReqEntry    = 0,
@@ -38,13 +38,13 @@ module memory_island_core #(
   parameter int unsigned SpillWideReqSplit    = 0,
   parameter int unsigned SpillWideRspSplit    = 0,
   /// Spill at Bank
-  parameter int unsigned SpillReqBank         = 0,
+  parameter int unsigned SpillReqBank         = 0, // assert 0 for fixed latency
   parameter int unsigned SpillRspBank         = 0,
 
   // verilog_lint: waive explicit-parameter-storage-type
   parameter MemorySimInit = "none",
 
-  /// Relinquish narrow priority after x cycles, 0 for never. Requires SpillNarrowReqRouted==0.
+  /// Relinquish narrow priority after x cycles, 0 for never.
   parameter int unsigned WidePriorityWait = 1,
 
   // Derived, DO NOT OVERRIDE
@@ -80,8 +80,13 @@ module memory_island_core #(
 );
 
   initial begin
-    // WidePriorityWait requires no narrow request spill after interco for fixed latency!
-    assert (WidePriorityWait == 0 || SpillNarrowReqRouted == 0);
+    // // WidePriorityWait requires no narrow request spill after interco for fixed latency!
+    // assert (WidePriorityWait == 0 || SpillNarrowReqRouted == 0);
+
+    // With gnt backpressure from the banks, an elastic cut between a grant
+    // point and the SRAM stalls and breaks the fixed-latency accounting.
+    assert (SpillNarrowReqRouted == 0);
+    assert (SpillReqBank == 0);
   end
 
   localparam int unsigned WidePseudoBanks = NWDivisor * NarrowExtraBF;
