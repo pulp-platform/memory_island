@@ -703,7 +703,10 @@ module memory_island_core #(
           genvar k = 0; k < SpillReqBank + SpillRspBank + BankAccessLatency; k++
       ) begin : gen_shift_rvalid
         if (k == 0) begin : gen_shift_in
-          assign shift_rvalid_d[k] = req_bank[i][j] & wide_gnt_bank[i][j];
+          // Tap the wide handshake at the arbitration point (downstream of the
+          // SpillWideReqSplit cut), so the shift depth stays aligned with the
+          // actual bank access even when that cut holds a stalled request.
+          assign shift_rvalid_d[k] = wide_req_bank_spill[i][j] & wide_gnt_bank_spill[i][j];
         end else begin : gen_shift
           assign shift_rvalid_d[k] = shift_rvalid_q[k-1];
         end
