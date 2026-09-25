@@ -376,6 +376,17 @@ module memory_island_core #(
   end
 
   localparam int unsigned NarrowWideBankSelWidth = AddrWideBankBit - AddrNarrowWideBit;
+  // When NumWideBanks == NarrowExtraBF the select field is zero-width (each
+  // pseudo bank maps to exactly one wide bank); keep a 1-bit constant-zero
+  // select so the part-selects below stay legal.
+  localparam int unsigned NarrowWideBankSelW =
+      NarrowWideBankSelWidth > 0 ? NarrowWideBankSelWidth : 1;
+
+  logic [WidePseudoBanks-1:0][NarrowWideBankSelW-1:0] narrow_wide_bank_sel;
+  for (genvar i = 0; i < WidePseudoBanks; i++) begin : gen_narrow_wide_bank_sel
+    assign narrow_wide_bank_sel[i] = (NarrowWideBankSelWidth > 0)
+        ? narrow_addr_routed_spill[i][NarrowWideBankSelW-1:0] : '0;
+  end
 
   for (
       genvar extraFactor = 0; extraFactor < NarrowExtraBF; extraFactor++
@@ -385,7 +396,7 @@ module memory_island_core #(
       always_comb begin
         narrow_gnt_routed_spill[PseudoIdx] = '0;
         for (int wideBank = 0; wideBank < TotalBanks / WidePseudoBanks; wideBank++) begin
-          if (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank) begin
+          if (narrow_wide_bank_sel[PseudoIdx] == wideBank) begin
             narrow_gnt_routed_spill[PseudoIdx] =
                 narrow_gnt_bank[(wideBank*NarrowExtraBF)+extraFactor][subBank];
           end
@@ -405,7 +416,7 @@ module memory_island_core #(
         localparam int unsigned WideBankIdx = (wideBank * NarrowExtraBF) + extraFactor;
         localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
         assign narrow_req_bank[WideBankIdx][subBank] = narrow_req_routed_spill[PseudoIdx] &
-            (narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0] == wideBank);
+            (narrow_wide_bank_sel[PseudoIdx] == wideBank);
         assign narrow_addr_bank[WideBankIdx][subBank] =
             narrow_addr_routed_spill[PseudoIdx][NarrowAddrMemWidth-1:NarrowWideBankSelWidth];
         assign narrow_we_bank[WideBankIdx][subBank] = narrow_we_routed_spill[PseudoIdx];
@@ -421,14 +432,14 @@ module memory_island_core #(
   ) begin : gen_narrow_routed_bank_rdata_l1
     for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_routed_bank_rdata_l2
       localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
-      logic [NarrowWideBankSelWidth-1:0] narrow_rdata_sel;
+      logic [NarrowWideBankSelW-1:0] narrow_rdata_sel;
       shift_reg #(
-        .dtype(logic [NarrowWideBankSelWidth-1:0]),
+        .dtype(logic [NarrowWideBankSelW-1:0]),
         .Depth(NarrowIntcBankLat)
       ) i_narrow_rdata_sel (
         .clk_i,
         .rst_ni,
-        .d_i(narrow_addr_routed_spill[PseudoIdx][NarrowWideBankSelWidth-1:0]),
+        .d_i(narrow_wide_bank_sel[PseudoIdx]),
         .d_o(narrow_rdata_sel)
       );
       assign narrow_rdata_routed_spill[PseudoIdx] =

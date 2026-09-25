@@ -12,18 +12,20 @@ module axi_memory_island_synth #(
   localparam int unsigned NarrowDataWidth = 32,
   localparam int unsigned WideDataWidth   = 256,
 
-  localparam int unsigned AxiIdWidth = 3,
+  localparam int unsigned AxiNarrowIdWidth = 4,
+  localparam int unsigned AxiWideIdWidth   = 5,
 
   localparam int unsigned NumNarrowReq = 4,
   localparam int unsigned NumWideReq   = 1,
-  localparam int unsigned NumWideBanks = 8,
-  localparam int unsigned WordsPerBank = 8192
+  localparam int unsigned NumWideBanks  = 2,
+  localparam int unsigned NarrowExtraBF = 1,
+  localparam int unsigned WordsPerBank  = 16384
 ) (
   input logic clk_i,
   input logic rst_ni,
 
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_awvalid,
-  input  logic             [NumNarrowReq-1:0][       AxiIdWidth-1:0] s_axi_narrow_awid,
+  input  logic             [NumNarrowReq-1:0][ AxiNarrowIdWidth-1:0] s_axi_narrow_awid,
   input  logic             [NumNarrowReq-1:0][        AddrWidth-1:0] s_axi_narrow_awaddr,
   input  axi_pkg::len_t    [NumNarrowReq-1:0]                        s_axi_narrow_awlen,
   input  axi_pkg::size_t   [NumNarrowReq-1:0]                        s_axi_narrow_awsize,
@@ -42,7 +44,7 @@ module axi_memory_island_synth #(
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_wuser,
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_bready,
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_arvalid,
-  input  logic             [NumNarrowReq-1:0][       AxiIdWidth-1:0] s_axi_narrow_arid,
+  input  logic             [NumNarrowReq-1:0][ AxiNarrowIdWidth-1:0] s_axi_narrow_arid,
   input  logic             [NumNarrowReq-1:0][        AddrWidth-1:0] s_axi_narrow_araddr,
   input  axi_pkg::len_t    [NumNarrowReq-1:0]                        s_axi_narrow_arlen,
   input  axi_pkg::size_t   [NumNarrowReq-1:0]                        s_axi_narrow_arsize,
@@ -58,18 +60,18 @@ module axi_memory_island_synth #(
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_arready,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_wready,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_bvalid,
-  output logic             [NumNarrowReq-1:0][       AxiIdWidth-1:0] s_axi_narrow_bid,
+  output logic             [NumNarrowReq-1:0][ AxiNarrowIdWidth-1:0] s_axi_narrow_bid,
   output axi_pkg::resp_t   [NumNarrowReq-1:0]                        s_axi_narrow_bresp,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_buser,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_rvalid,
-  output logic             [NumNarrowReq-1:0][       AxiIdWidth-1:0] s_axi_narrow_rid,
+  output logic             [NumNarrowReq-1:0][ AxiNarrowIdWidth-1:0] s_axi_narrow_rid,
   output logic             [NumNarrowReq-1:0][NarrowDataWidth  -1:0] s_axi_narrow_rdata,
   output axi_pkg::resp_t   [NumNarrowReq-1:0]                        s_axi_narrow_rresp,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_rlast,
   output logic             [NumNarrowReq-1:0]                        s_axi_narrow_ruser,
 
   input  logic             [NumWideReq-1:0]                      s_axi_wide_awvalid,
-  input  logic             [NumWideReq-1:0][     AxiIdWidth-1:0] s_axi_wide_awid,
+  input  logic             [NumWideReq-1:0][   AxiWideIdWidth-1:0] s_axi_wide_awid,
   input  logic             [NumWideReq-1:0][      AddrWidth-1:0] s_axi_wide_awaddr,
   input  axi_pkg::len_t    [NumWideReq-1:0]                      s_axi_wide_awlen,
   input  axi_pkg::size_t   [NumWideReq-1:0]                      s_axi_wide_awsize,
@@ -88,7 +90,7 @@ module axi_memory_island_synth #(
   input  logic             [NumWideReq-1:0]                      s_axi_wide_wuser,
   input  logic             [NumWideReq-1:0]                      s_axi_wide_bready,
   input  logic             [NumWideReq-1:0]                      s_axi_wide_arvalid,
-  input  logic             [NumWideReq-1:0][     AxiIdWidth-1:0] s_axi_wide_arid,
+  input  logic             [NumWideReq-1:0][   AxiWideIdWidth-1:0] s_axi_wide_arid,
   input  logic             [NumWideReq-1:0][      AddrWidth-1:0] s_axi_wide_araddr,
   input  axi_pkg::len_t    [NumWideReq-1:0]                      s_axi_wide_arlen,
   input  axi_pkg::size_t   [NumWideReq-1:0]                      s_axi_wide_arsize,
@@ -104,21 +106,21 @@ module axi_memory_island_synth #(
   output logic             [NumWideReq-1:0]                      s_axi_wide_arready,
   output logic             [NumWideReq-1:0]                      s_axi_wide_wready,
   output logic             [NumWideReq-1:0]                      s_axi_wide_bvalid,
-  output logic             [NumWideReq-1:0][     AxiIdWidth-1:0] s_axi_wide_bid,
+  output logic             [NumWideReq-1:0][   AxiWideIdWidth-1:0] s_axi_wide_bid,
   output axi_pkg::resp_t   [NumWideReq-1:0]                      s_axi_wide_bresp,
   output logic             [NumWideReq-1:0]                      s_axi_wide_buser,
   output logic             [NumWideReq-1:0]                      s_axi_wide_rvalid,
-  output logic             [NumWideReq-1:0][     AxiIdWidth-1:0] s_axi_wide_rid,
+  output logic             [NumWideReq-1:0][   AxiWideIdWidth-1:0] s_axi_wide_rid,
   output logic             [NumWideReq-1:0][WideDataWidth  -1:0] s_axi_wide_rdata,
   output axi_pkg::resp_t   [NumWideReq-1:0]                      s_axi_wide_rresp,
   output logic             [NumWideReq-1:0]                      s_axi_wide_rlast,
   output logic             [NumWideReq-1:0]                      s_axi_wide_ruser
 
 );
-  `AXI_TYPEDEF_ALL(axi_narrow, logic[AddrWidth-1:0], logic[AxiIdWidth-1:0],
+  `AXI_TYPEDEF_ALL(axi_narrow, logic[AddrWidth-1:0], logic[AxiNarrowIdWidth-1:0],
                    logic[NarrowDataWidth-1:0], logic[NarrowDataWidth/8-1:0], logic)
-  `AXI_TYPEDEF_ALL(axi_wide, logic[AddrWidth-1:0], logic[AxiIdWidth-1:0], logic[WideDataWidth-1:0],
-                   logic[WideDataWidth/8-1:0], logic)
+  `AXI_TYPEDEF_ALL(axi_wide, logic[AddrWidth-1:0], logic[AxiWideIdWidth-1:0],
+                   logic[WideDataWidth-1:0], logic[WideDataWidth/8-1:0], logic)
 
   axi_narrow_req_t  [NumNarrowReq-1:0] narrow_req;
   axi_narrow_resp_t [NumNarrowReq-1:0] narrow_rsp;
@@ -264,8 +266,8 @@ module axi_memory_island_synth #(
     .AddrWidth           (AddrWidth),
     .NarrowDataWidth     (NarrowDataWidth),
     .WideDataWidth       (WideDataWidth),
-    .AxiNarrowIdWidth    (AxiIdWidth),
-    .AxiWideIdWidth      (AxiIdWidth),
+    .AxiNarrowIdWidth    (AxiNarrowIdWidth),
+    .AxiWideIdWidth      (AxiWideIdWidth),
     .axi_narrow_req_t    (axi_narrow_req_t),
     .axi_narrow_rsp_t    (axi_narrow_resp_t),
     .axi_wide_req_t      (axi_wide_req_t),
@@ -279,14 +281,16 @@ module axi_memory_island_synth #(
     .SpillNarrowRspRouted(0),
     .SpillWideReqEntry   (0),
     .SpillWideRspEntry   (0),
-    .SpillWideReqRouted  (1),
-    .SpillWideRspRouted  (1),
+    .SpillWideReqRouted  (0),
+    .SpillWideRspRouted  (0),
     .SpillWideReqSplit   (0),
     .SpillWideRspSplit   (0),
-    .SpillReqBank        (1),
-    .SpillRspBank        (1),
-    .WidePriorityWait    (2),
-    .NumWideBanks        (NumWideBanks)
+    .SpillReqBank        (0),
+    .SpillRspBank        (0),
+    .WidePriorityWait    (3),
+    .NumWideBanks        (NumWideBanks),
+    .NarrowExtraBF       (NarrowExtraBF),
+    .MemorySimInit       ("zeros")
   ) i_mem_island (
     .clk_i,
     .rst_ni,
