@@ -47,6 +47,11 @@ module memory_island_core #(
   /// Relinquish narrow priority after x cycles, 0 for never.
   parameter int unsigned WidePriorityWait = 1,
 
+  /// Memory-side accumulation in the banks, see ecc_sram. Narrow ports only.
+  ///   0: no adders, narrow_accum_i ignored
+  ///   1: one signed saturating adder per byte
+  parameter bit AccumEnabled = 1'b0,
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth   = NarrowDataWidth / 8,
   parameter int unsigned WideStrbWidth     = WideDataWidth / 8,
@@ -64,6 +69,9 @@ module memory_island_core #(
   input  logic [NumNarrowReq-1:0]                      narrow_we_i,
   input  logic [NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_wdata_i,
   input  logic [NumNarrowReq-1:0][NarrowStrbWidth-1:0] narrow_strb_i,
+  /// Accumulate into the addressed word instead of overwriting the enabled lanes.
+  /// Requires AccumEnabled; tie low otherwise.
+  input  logic [NumNarrowReq-1:0]                      narrow_accum_i,
   output logic [NumNarrowReq-1:0]                      narrow_rvalid_o,
   output logic [NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_rdata_o,
 
@@ -125,6 +133,7 @@ module memory_island_core #(
   logic [NumNarrowReq-1:0] narrow_we_entry_spill;
   logic [NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_wdata_entry_spill;
   logic [NumNarrowReq-1:0][NarrowStrbWidth-1:0] narrow_strb_entry_spill;
+  logic [NumNarrowReq-1:0] narrow_accum_entry_spill;
   logic [NumNarrowReq-1:0] narrow_rvalid_entry_spill;
   logic [NumNarrowReq-1:0][NarrowDataWidth-1:0] narrow_rdata_entry_spill;
 
@@ -143,6 +152,7 @@ module memory_island_core #(
   logic [WidePseudoBanks-1:0] narrow_we_routed;
   logic [WidePseudoBanks-1:0][NarrowDataWidth-1:0] narrow_wdata_routed;
   logic [WidePseudoBanks-1:0][NarrowStrbWidth-1:0] narrow_strb_routed;
+  logic [WidePseudoBanks-1:0] narrow_accum_routed;
   logic [WidePseudoBanks-1:0][NarrowDataWidth-1:0] narrow_rdata_routed;
 
   logic [WidePseudoBanks-1:0] narrow_req_routed_spill;
@@ -151,6 +161,7 @@ module memory_island_core #(
   logic [WidePseudoBanks-1:0] narrow_we_routed_spill;
   logic [WidePseudoBanks-1:0][NarrowDataWidth-1:0] narrow_wdata_routed_spill;
   logic [WidePseudoBanks-1:0][NarrowStrbWidth-1:0] narrow_strb_routed_spill;
+  logic [WidePseudoBanks-1:0] narrow_accum_routed_spill;
   logic [WidePseudoBanks-1:0][NarrowDataWidth-1:0] narrow_rdata_routed_spill;
 
   logic [NumWideBanks-1:0] wide_req_routed;
@@ -179,6 +190,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0] narrow_we_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] narrow_wdata_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowStrbWidth-1:0] narrow_strb_bank;
+  logic [NumWideBanks-1:0][NWDivisor-1:0] narrow_accum_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] narrow_rdata_bank;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] wide_req_bank;
@@ -205,6 +217,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0] we_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] wdata_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowStrbWidth-1:0] strb_bank;
+  logic [NumWideBanks-1:0][NWDivisor-1:0] accum_bank;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] rdata_bank;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] req_bank_spill;
@@ -213,6 +226,7 @@ module memory_island_core #(
   logic [NumWideBanks-1:0][NWDivisor-1:0] we_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] wdata_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowStrbWidth-1:0] strb_bank_spill;
+  logic [NumWideBanks-1:0][NWDivisor-1:0] accum_bank_spill;
   logic [NumWideBanks-1:0][NWDivisor-1:0][NarrowDataWidth-1:0] rdata_bank_spill;
 
   logic [NumWideBanks-1:0][NWDivisor-1:0] narrow_priority_req;
@@ -235,13 +249,15 @@ module memory_island_core #(
       .we_i   (narrow_we_i[i]),
       .wdata_i(narrow_wdata_i[i]),
       .strb_i (narrow_strb_i[i]),
+      .accum_i(narrow_accum_i[i]),
 
       .req_o  (narrow_req_entry_spill[i]),
       .gnt_i  (narrow_gnt_entry_spill[i]),
       .addr_o (narrow_addr_entry_spill[i]),
       .we_o   (narrow_we_entry_spill[i]),
       .wdata_o(narrow_wdata_entry_spill[i]),
-      .strb_o (narrow_strb_entry_spill[i])
+      .strb_o (narrow_strb_entry_spill[i]),
+      .accum_o(narrow_accum_entry_spill[i])
     );
     mem_rsp_multicut #(
       .DataWidth(NarrowDataWidth),
@@ -275,13 +291,15 @@ module memory_island_core #(
       .we_i   (wide_we_i[i]),
       .wdata_i(wide_wdata_i[i]),
       .strb_i (wide_strb_i[i]),
+      .accum_i(1'b0),
 
       .req_o  (wide_req_entry_spill[i]),
       .gnt_i  (wide_gnt_entry_spill[i]),
       .addr_o (wide_addr_entry_spill[i]),
       .we_o   (wide_we_entry_spill[i]),
       .wdata_o(wide_wdata_entry_spill[i]),
-      .strb_o (wide_strb_entry_spill[i])
+      .strb_o (wide_strb_entry_spill[i]),
+      .accum_o()
     );
     mem_rsp_multicut #(
       .DataWidth(WideDataWidth),
@@ -301,13 +319,25 @@ module memory_island_core #(
   end
 
   // Narrow interconnect
+  // `tcdm_interconnect` treats `be` as an opaque payload of free width, so the accum flag rides
+  // along with the strobe instead of needing its own port.
+  logic [   NumNarrowReq-1:0][NarrowStrbWidth:0] narrow_be_entry_spill;
+  logic [WidePseudoBanks-1:0][NarrowStrbWidth:0] narrow_be_routed;
+  for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_be_pack
+    assign narrow_be_entry_spill[i] = {narrow_accum_entry_spill[i], narrow_strb_entry_spill[i]};
+  end
+  for (genvar i = 0; i < WidePseudoBanks; i++) begin : gen_narrow_be_unpack
+    assign narrow_strb_routed[i]  = narrow_be_routed[i][NarrowStrbWidth-1:0];
+    assign narrow_accum_routed[i] = narrow_be_routed[i][NarrowStrbWidth];
+  end
+
   // Fixed latency as higher priority for narrow accesses
   tcdm_interconnect #(
     .NumIn       (NumNarrowReq),
     .NumOut      (WidePseudoBanks),
     .AddrWidth   (AddrWidth),
     .DataWidth   (NarrowDataWidth),
-    .BeWidth     (NarrowStrbWidth),
+    .BeWidth     (NarrowStrbWidth + 1),
     .AddrMemWidth(NarrowAddrMemWidth),
     .WriteRespOn (1),
     .RespLat     (NarrowIntcBankLat),
@@ -320,7 +350,7 @@ module memory_island_core #(
     .add_i  (narrow_addr_entry_spill),
     .wen_i  (narrow_we_entry_spill),
     .wdata_i(narrow_wdata_entry_spill),
-    .be_i   (narrow_strb_entry_spill),
+    .be_i   (narrow_be_entry_spill),
     .gnt_o  (narrow_gnt_entry_spill),
     .vld_o  (narrow_rvalid_entry_spill),
     .rdata_o(narrow_rdata_entry_spill),
@@ -330,7 +360,7 @@ module memory_island_core #(
     .add_o  (narrow_addr_routed),
     .wen_o  (narrow_we_routed),
     .wdata_o(narrow_wdata_routed),
-    .be_o   (narrow_strb_routed),
+    .be_o   (narrow_be_routed),
     .rdata_i(narrow_rdata_routed)
   );
 
@@ -349,13 +379,15 @@ module memory_island_core #(
       .we_i   (narrow_we_routed[i]),
       .wdata_i(narrow_wdata_routed[i]),
       .strb_i (narrow_strb_routed[i]),
+      .accum_i(narrow_accum_routed[i]),
 
       .req_o  (narrow_req_routed_spill[i]),
       .gnt_i  (narrow_gnt_routed_spill[i]),
       .addr_o (narrow_addr_routed_spill[i]),
       .we_o   (narrow_we_routed_spill[i]),
       .wdata_o(narrow_wdata_routed_spill[i]),
-      .strb_o (narrow_strb_routed_spill[i])
+      .strb_o (narrow_strb_routed_spill[i]),
+      .accum_o(narrow_accum_routed_spill[i])
     );
 
     mem_rsp_multicut #(
@@ -422,6 +454,7 @@ module memory_island_core #(
         assign narrow_we_bank[WideBankIdx][subBank] = narrow_we_routed_spill[PseudoIdx];
         assign narrow_wdata_bank[WideBankIdx][subBank] = narrow_wdata_routed_spill[PseudoIdx];
         assign narrow_strb_bank[WideBankIdx][subBank] = narrow_strb_routed_spill[PseudoIdx];
+        assign narrow_accum_bank[WideBankIdx][subBank] = narrow_accum_routed_spill[PseudoIdx];
       end
     end
   end
@@ -642,6 +675,7 @@ module memory_island_core #(
           wide_wdata_bank_spill[i][j];
       assign strb_bank[i][j] = narrow_priority_req[i][j] ? narrow_strb_bank[i][j] :
           wide_strb_bank_spill[i][j];
+      assign accum_bank[i][j] = narrow_priority_req[i][j] & narrow_accum_bank[i][j];
       assign narrow_rdata_bank[i][j] = rdata_bank[i][j];
       assign wide_rdata_bank_spill[i][j] = rdata_bank[i][j];
 
@@ -659,13 +693,15 @@ module memory_island_core #(
         .we_i   (we_bank[i][j]),
         .wdata_i(wdata_bank[i][j]),
         .strb_i (strb_bank[i][j]),
+        .accum_i(accum_bank[i][j]),
 
         .req_o  (req_bank_spill[i][j]),
         .gnt_i  (gnt_bank_spill[i][j]),
         .addr_o (addr_bank_spill[i][j]),
         .we_o   (we_bank_spill[i][j]),
         .wdata_o(wdata_bank_spill[i][j]),
-        .strb_o (strb_bank_spill[i][j])
+        .strb_o (strb_bank_spill[i][j]),
+        .accum_o(accum_bank_spill[i][j])
       );
 
       mem_rsp_multicut #(
@@ -685,6 +721,15 @@ module memory_island_core #(
       );
 
       // Memory bank
+      // TODO: The bank's read-modify-write path (SRAM Q -> ECC decode -> merge / saturating add ->
+      // ECC encode -> SRAM D) does not meet timing at the dora target clock. It already failed
+      // without the adders, which only deepen it. NumRMWCuts = 1 did not improve the reported
+      // slack: the worst path still starts at the SRAM output and runs through the two
+      // `store_state_q` muxes of ecc_sram in mutually exclusive states (decoder_in in NORMAL,
+      // to_store in READ_MODIFY_WRITE), so it looks like a false path. This is inferred from the
+      // path report and the RTL, not confirmed by a constrained synthesis run. Constrain or
+      // restructure those muxes first, then re-evaluate the cut and expose it as a parameter if
+      // it helps.
       ecc_sram #(
         .NumWords        (WordsPerBank),
         .UnprotectedWidth(NarrowDataWidth),
@@ -692,7 +737,8 @@ module memory_island_core #(
         .NumRMWCuts      (0),
         .SimInit         (MemorySimInit),
         .ByteWidth       (8),
-        .BankAccessLatency(BankAccessLatency)
+        .BankAccessLatency(BankAccessLatency),
+        .AccumEnabled    (AccumEnabled)
       ) i_bank (
         .clk_i,
         .rst_ni,
@@ -706,6 +752,7 @@ module memory_island_core #(
         .req_i  (req_bank_spill[i][j]),
         .we_i   (we_bank_spill[i][j]),
         .be_i   (strb_bank_spill[i][j]),
+        .accum_i(accum_bank_spill[i][j]),
         .rdata_o(rdata_bank_spill[i][j]),
         .gnt_o  (gnt_bank_spill[i][j]),
 

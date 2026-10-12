@@ -110,6 +110,7 @@ module memory_island_core_perf_tb #(
     .narrow_we_i    (narrow_we),
     .narrow_wdata_i (narrow_wdata),
     .narrow_strb_i  (narrow_strb),
+    .narrow_accum_i ('0),
     .narrow_rvalid_o(narrow_rvalid),
     .narrow_rdata_o (narrow_rdata),
     .wide_req_i     (wide_req),

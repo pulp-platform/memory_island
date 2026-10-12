@@ -32,6 +32,10 @@ module axi_memory_island_wrap #(
   /// Indicates corresponding narrow requestor supports read/write (0 for read-only/write-only)
   parameter bit [  NumWideReq-1:0] WideRW   = '1,
 
+  /// Enable memory-side accumulation: AXI AtomicStore+ADD writes on the narrow ports are executed
+  /// as an accumulate in the addressed bank instead of an overwrite.
+  parameter bit AccumEnabled = 1'b0,
+
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
@@ -90,6 +94,7 @@ module axi_memory_island_wrap #(
   logic [InternalNumNarrow-1:0][      AddrWidth-1:0] narrow_addr;
   logic [InternalNumNarrow-1:0][NarrowDataWidth-1:0] narrow_wdata;
   logic [InternalNumNarrow-1:0][NarrowStrbWidth-1:0] narrow_strb;
+  logic [InternalNumNarrow-1:0]                      narrow_accum;
   logic [InternalNumNarrow-1:0]                      narrow_we;
   logic [InternalNumNarrow-1:0]                      narrow_rvalid;
   logic [InternalNumNarrow-1:0][NarrowDataWidth-1:0] narrow_rdata;
@@ -103,6 +108,21 @@ module axi_memory_island_wrap #(
   logic [  InternalNumWide-1:0]                      wide_rvalid;
   logic [  InternalNumWide-1:0][  WideDataWidth-1:0] wide_rdata;
 
+
+  // Memory-side accumulation. `axi_to_mem_split` already hands out the ATOP code of every write
+  // it forwards; all this needs is to decode AtomicStore+ADD and pass the flag to the island,
+  // which executes it in the addressed bank's read-modify-write stage. An AtomicStore answers on
+  // B only, so a write-only requestor can accumulate without a read channel.
+  logic [InternalNumNarrow-1:0][5:0] narrow_atop;
+
+  function automatic logic decode_accum(logic [5:0] atop);
+    return (atop[5:4] == axi_pkg::ATOP_ATOMICSTORE) && (atop[2:0] == axi_pkg::ATOP_ADD);
+  endfunction
+
+  for (genvar i = 0; i < InternalNumNarrow; i++) begin : gen_narrow_accum_decode
+    // Without accumulation the ATOP code is ignored and an atomic write is a plain overwrite.
+    assign narrow_accum[i] = AccumEnabled ? decode_accum(narrow_atop[i]) : 1'b0;
+  end
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_conv
     localparam int unsigned Id = i + $countones(NarrowRW[i:0]);
@@ -129,7 +149,7 @@ module axi_memory_island_wrap #(
         .mem_addr_o  (narrow_addr[Id-:2]),
         .mem_wdata_o (narrow_wdata[Id-:2]),
         .mem_strb_o  (narrow_strb[Id-:2]),
-        .mem_atop_o  (),
+        .mem_atop_o  (narrow_atop[Id-:2]),
         .mem_we_o    (narrow_we[Id-:2]),
         .mem_rvalid_i(narrow_rvalid[Id-:2]),
         .mem_rdata_i (narrow_rdata[Id-:2])
@@ -156,7 +176,7 @@ module axi_memory_island_wrap #(
         .mem_addr_o  (narrow_addr[Id]),
         .mem_wdata_o (narrow_wdata[Id]),
         .mem_strb_o  (narrow_strb[Id]),
-        .mem_atop_o  (),
+        .mem_atop_o  (narrow_atop[Id]),
         .mem_we_o    (narrow_we[Id]),
         .mem_rvalid_i(narrow_rvalid[Id]),
         .mem_rdata_i (narrow_rdata[Id])
@@ -248,7 +268,8 @@ module axi_memory_island_wrap #(
     .SpillRspBank        (SpillRspBank),
     .WidePriorityWait    (WidePriorityWait),
     .MemorySimInit       (MemorySimInit),
-    .BankAccessLatency   (BankAccessLatency)
+    .BankAccessLatency   (BankAccessLatency),
+    .AccumEnabled        (AccumEnabled)
   ) i_memory_island (
     .clk_i,
     .rst_ni,
@@ -259,6 +280,7 @@ module axi_memory_island_wrap #(
     .narrow_we_i    (narrow_we),
     .narrow_wdata_i (narrow_wdata),
     .narrow_strb_i  (narrow_strb),
+    .narrow_accum_i (narrow_accum),
     .narrow_rvalid_o(narrow_rvalid),
     .narrow_rdata_o (narrow_rdata),
     .wide_req_i     (wide_req),

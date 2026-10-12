@@ -19,7 +19,9 @@ module axi_memory_island_synth #(
   localparam int unsigned NumWideReq   = 1,
   localparam int unsigned NumWideBanks  = 2,
   localparam int unsigned NarrowExtraBF = 1,
-  localparam int unsigned WordsPerBank  = 16384
+  localparam int unsigned WordsPerBank  = 16384,
+  // Memory-side accumulation. Set to 1'b0 for the island without it.
+  localparam bit AccumEnabled = 1'b1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -290,6 +292,7 @@ module axi_memory_island_synth #(
     .WidePriorityWait    (3),
     .NumWideBanks        (NumWideBanks),
     .NarrowExtraBF       (NarrowExtraBF),
+    .AccumEnabled        (AccumEnabled),
     .MemorySimInit       ("zeros")
   ) i_mem_island (
     .clk_i,

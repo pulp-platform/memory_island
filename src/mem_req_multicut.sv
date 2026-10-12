@@ -24,6 +24,8 @@ module mem_req_multicut #(
   input  logic                 we_i,
   input  logic [DataWidth-1:0] wdata_i,
   input  logic [StrbWidth-1:0] strb_i,
+  /// Accumulate instead of overwrite; travels with the request
+  input  logic                 accum_i,
 
   // mem interface outputs
   output logic                 req_o,
@@ -31,10 +33,11 @@ module mem_req_multicut #(
   output logic [AddrWidth-1:0] addr_o,
   output logic                 we_o,
   output logic [DataWidth-1:0] wdata_o,
-  output logic [StrbWidth-1:0] strb_o
+  output logic [StrbWidth-1:0] strb_o,
+  output logic                 accum_o
 );
 
-  localparam int unsigned AggDataWidth = 1 + StrbWidth + AddrWidth + DataWidth;
+  localparam int unsigned AggDataWidth = 1 + 1 + StrbWidth + AddrWidth + DataWidth;
   if (NumCuts == 0) begin : gen_passthrough
     assign req_o   = req_i;
     assign gnt_o   = gnt_i;
@@ -42,16 +45,17 @@ module mem_req_multicut #(
     assign we_o    = we_i;
     assign wdata_o = wdata_i;
     assign strb_o  = strb_i;
+    assign accum_o = accum_i;
   end else begin : gen_cuts
     logic [NumCuts:0][AggDataWidth-1:0] data_agg;
     logic [NumCuts:0] req, gnt;
 
-    assign data_agg[0]                     = {we_i, strb_i, addr_i, wdata_i};
+    assign data_agg[0]                     = {accum_i, we_i, strb_i, addr_i, wdata_i};
     assign req[0]                          = req_i;
     assign gnt_o                           = gnt[0];
     assign gnt[NumCuts]                    = gnt_i;
     assign req_o                           = req[NumCuts];
-    assign {we_o, strb_o, addr_o, wdata_o} = data_agg[NumCuts];
+    assign {accum_o, we_o, strb_o, addr_o, wdata_o} = data_agg[NumCuts];
 
     for (genvar i = 0; i < NumCuts; i++) begin : gen_cut
       spill_register #(
