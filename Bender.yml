@@ -31,6 +31,7 @@ sources:
     files:
       - test/axi_memory_island_tb.sv
       - test/memory_island_core_perf_tb.sv
+      - test/axi_memory_island_perf_tb.sv
 
   - target: memory_island_standalone_synth
     files:
