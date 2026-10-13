@@ -530,13 +530,15 @@ module memory_island_core #(
       .we_i   (wide_we_routed[i]),
       .wdata_i(wide_wdata_routed[i]),
       .strb_i (wide_strb_routed[i]),
+      .accum_i(1'b0),
 
       .req_o  (wide_req_routed_spill[i]),
       .gnt_i  (wide_gnt_routed_spill[i]),
       .addr_o (wide_addr_routed_spill[i]),
       .we_o   (wide_we_routed_spill[i]),
       .wdata_o(wide_wdata_routed_spill[i]),
-      .strb_o (wide_strb_routed_spill[i])
+      .strb_o (wide_strb_routed_spill[i]),
+      .accum_o()
     );
     mem_rsp_multicut #(
       .DataWidth(WideDataWidth),
@@ -610,13 +612,15 @@ module memory_island_core #(
         .we_i   (wide_we_bank[i][j]),
         .wdata_i(wide_wdata_bank[i][j]),
         .strb_i (wide_strb_bank[i][j]),
+        .accum_i(1'b0),
 
         .req_o  (wide_req_bank_spill[i][j]),
         .gnt_i  (wide_gnt_bank_spill[i][j]),
         .addr_o (wide_addr_bank_spill[i][j]),
         .we_o   (wide_we_bank_spill[i][j]),
         .wdata_o(wide_wdata_bank_spill[i][j]),
-        .strb_o (wide_strb_bank_spill[i][j])
+        .strb_o (wide_strb_bank_spill[i][j]),
+        .accum_o()
       );
 
       mem_rsp_multicut #(
