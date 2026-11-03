@@ -32,6 +32,7 @@ module memory_island_core_perf_tb #(
   parameter int unsigned NumWideBanks      = 2,
   parameter int unsigned WordsPerBank      = 16384,
   parameter int unsigned BankAccessLatency = 1,
+  parameter int unsigned NumRMWCuts        = 0,
   parameter int unsigned WidePriorityWait  = 3,
   parameter time         CyclTime          = 10ns
 ) ();
@@ -100,7 +101,8 @@ module memory_island_core_perf_tb #(
     .SpillRspBank        (0),
     .MemorySimInit       ("zeros"),
     .WidePriorityWait    (WidePriorityWait),
-    .BankAccessLatency   (BankAccessLatency)
+    .BankAccessLatency   (BankAccessLatency),
+    .NumRMWCuts          (NumRMWCuts)
   ) i_dut (
     .clk_i          (clk),
     .rst_ni         (rst_n),

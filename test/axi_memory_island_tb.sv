@@ -24,6 +24,7 @@ module axi_memory_island_tb #(
   parameter int unsigned TbNumReads        = 200,
   parameter int unsigned TbNumWrites       = 200,
   parameter int unsigned BankAccessLatency = 1,
+  parameter int unsigned NumRMWCuts        = 0,
   parameter time         CyclTime          = 10ns,
   parameter time         ApplTime          = 2ns,
   parameter time         TestTime          = 8ns,
@@ -621,7 +622,8 @@ module axi_memory_island_tb #(
     .NarrowExtraBF    (NarrowExtraBF),
     .WordsPerBank     (WordsPerBank),
     .MemorySimInit    ("zeros"),
-    .BankAccessLatency(BankAccessLatency)
+    .BankAccessLatency(BankAccessLatency),
+    .NumRMWCuts       (NumRMWCuts)
   ) i_dut (
     .clk_i           (clk),
     .rst_ni          (rst_n),

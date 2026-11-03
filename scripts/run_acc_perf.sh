@@ -10,6 +10,8 @@
 #           basew  no ATOP support, one plain word write per 4 events: the write-bandwidth
 #                  ceiling that config a approaches
 #           a      per-bank saturating adder on the sensor port, a whole word per AXI write
+#           basecut, acut
+#                  base and a with one cut in the bank read-modify-write path (NumRMWCuts = 1)
 #
 # Results: build/perf/results_<config>_seed<seed>.txt, logs in build/perf/logs/.
 
@@ -17,7 +19,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/build/perf"
-CONFIG="${1:?config: base | basew | a}"
+CONFIG="${1:?config: base | basew | a | basecut | acut}"
 CYCLES="${2:-20000}"
 SEED="${3:-1}"
 VSIM="${VSIM:-questa-2023.4 vsim}"
@@ -26,7 +28,9 @@ case "$CONFIG" in
   base)  GPARAMS=(-GAccumEnabled=0); ARGS="+MERGE=0" ;;
   basew) GPARAMS=(-GAccumEnabled=0); ARGS="+MERGE=1" ;;
   a)     GPARAMS=(-GAccumEnabled=1); ARGS="+MERGE=1" ;;
-  *)     echo "unknown config '$CONFIG' (base | basew | a)"; exit 1 ;;
+  basecut) GPARAMS=(-GAccumEnabled=0 -GNumRMWCuts=1); ARGS="+MERGE=0" ;;
+  acut)    GPARAMS=(-GAccumEnabled=1 -GNumRMWCuts=1); ARGS="+MERGE=1" ;;
+  *)     echo "unknown config '$CONFIG' (base | basew | a | basecut | acut)"; exit 1 ;;
 esac
 
 mkdir -p "$BUILD/logs"

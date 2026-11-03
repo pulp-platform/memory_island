@@ -43,6 +43,7 @@ module axi_memory_island_perf_tb #(
   parameter int unsigned NumWideBanks      = 2,
   parameter int unsigned WordsPerBank      = 16384,
   parameter int unsigned BankAccessLatency = 1,
+  parameter int unsigned NumRMWCuts        = 0,
   parameter int unsigned WidePriorityWait  = 3,
   parameter time         CyclTime          = 10ns,
   parameter int unsigned WatchdogCycles    = 5 * 1000 * 1000,
@@ -150,7 +151,8 @@ module axi_memory_island_perf_tb #(
     .NarrowExtraBF       (NarrowExtraBF),
     .WordsPerBank        (WordsPerBank),
     .MemorySimInit       ("zeros"),
-    .BankAccessLatency   (BankAccessLatency)
+    .BankAccessLatency   (BankAccessLatency),
+    .NumRMWCuts          (NumRMWCuts)
   ) i_dut (
     .clk_i           (clk),
     .rst_ni          (rst_n),
