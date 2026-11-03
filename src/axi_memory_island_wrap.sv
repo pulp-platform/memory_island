@@ -36,6 +36,10 @@ module axi_memory_island_wrap #(
   /// as an accumulate in the addressed bank instead of an overwrite.
   parameter bit AccumEnabled = 1'b0,
 
+  /// Pipeline cuts in the read-modify-write path of the banks, see memory_island_core.
+  /// Use 0 or 1.
+  parameter int unsigned NumRMWCuts = 0,
+
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
@@ -269,7 +273,8 @@ module axi_memory_island_wrap #(
     .WidePriorityWait    (WidePriorityWait),
     .MemorySimInit       (MemorySimInit),
     .BankAccessLatency   (BankAccessLatency),
-    .AccumEnabled        (AccumEnabled)
+    .AccumEnabled        (AccumEnabled),
+    .NumRMWCuts          (NumRMWCuts)
   ) i_memory_island (
     .clk_i,
     .rst_ni,

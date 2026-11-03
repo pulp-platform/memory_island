@@ -52,6 +52,11 @@ module memory_island_core #(
   ///   1: one signed saturating adder per byte
   parameter bit AccumEnabled = 1'b0,
 
+  /// Pipeline cuts in the read-modify-write path of the banks (sub-word writes and accumulation),
+  /// see ecc_sram. Each cut keeps the bank busy one more cycle per RMW. 1 is enough to take the
+  /// SRAM output off the SRAM-to-SRAM path, more give no timing benefit.
+  parameter int unsigned NumRMWCuts = 0,
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth   = NarrowDataWidth / 8,
   parameter int unsigned WideStrbWidth     = WideDataWidth / 8,
@@ -725,20 +730,11 @@ module memory_island_core #(
       );
 
       // Memory bank
-      // TODO: The bank's read-modify-write path (SRAM Q -> ECC decode -> merge / saturating add ->
-      // ECC encode -> SRAM D) does not meet timing at the dora target clock. It already failed
-      // without the adders, which only deepen it. NumRMWCuts = 1 did not improve the reported
-      // slack: the worst path still starts at the SRAM output and runs through the two
-      // `store_state_q` muxes of ecc_sram in mutually exclusive states (decoder_in in NORMAL,
-      // to_store in READ_MODIFY_WRITE), so it looks like a false path. This is inferred from the
-      // path report and the RTL, not confirmed by a constrained synthesis run. Constrain or
-      // restructure those muxes first, then re-evaluate the cut and expose it as a parameter if
-      // it helps.
       ecc_sram #(
         .NumWords        (WordsPerBank),
         .UnprotectedWidth(NarrowDataWidth),
         .InputECC        (1'b0),
-        .NumRMWCuts      (0),
+        .NumRMWCuts      (NumRMWCuts),
         .SimInit         (MemorySimInit),
         .ByteWidth       (8),
         .BankAccessLatency(BankAccessLatency),
