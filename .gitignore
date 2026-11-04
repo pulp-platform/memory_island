@@ -1,6 +1,8 @@
 .bender/
 scripts/compile.tcl
 working_dir/
+build/
+docs/
 
 # Questa
 modelsim.ini
