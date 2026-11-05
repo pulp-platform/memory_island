@@ -28,7 +28,7 @@ module memory_island_core #(
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
-  parameter int unsigned SpillNarrowReqRouted = 0, // assert 0 for fixed latency
+  parameter int unsigned SpillNarrowReqRouted = 0,  // assert 0 for fixed latency
   parameter int unsigned SpillNarrowRspRouted = 0,
   /// Spill Wide
   parameter int unsigned SpillWideReqEntry    = 0,
@@ -38,7 +38,7 @@ module memory_island_core #(
   parameter int unsigned SpillWideReqSplit    = 0,
   parameter int unsigned SpillWideRspSplit    = 0,
   /// Spill at Bank
-  parameter int unsigned SpillReqBank         = 0, // assert 0 for fixed latency
+  parameter int unsigned SpillReqBank         = 0,  // assert 0 for fixed latency
   parameter int unsigned SpillRspBank         = 0,
 
   // verilog_lint: waive explicit-parameter-storage-type
@@ -419,18 +419,16 @@ module memory_island_core #(
   // When NumWideBanks == NarrowExtraBF the select field is zero-width (each
   // pseudo bank maps to exactly one wide bank); keep a 1-bit constant-zero
   // select so the part-selects below stay legal.
-  localparam int unsigned NarrowWideBankSelW =
-      NarrowWideBankSelWidth > 0 ? NarrowWideBankSelWidth : 1;
+  localparam
+      int unsigned NarrowWideBankSelW = NarrowWideBankSelWidth > 0 ? NarrowWideBankSelWidth : 1;
 
   logic [WidePseudoBanks-1:0][NarrowWideBankSelW-1:0] narrow_wide_bank_sel;
   for (genvar i = 0; i < WidePseudoBanks; i++) begin : gen_narrow_wide_bank_sel
-    assign narrow_wide_bank_sel[i] = (NarrowWideBankSelWidth > 0)
-        ? narrow_addr_routed_spill[i][NarrowWideBankSelW-1:0] : '0;
+    assign narrow_wide_bank_sel[i] = (NarrowWideBankSelWidth > 0) ?
+        narrow_addr_routed_spill[i][NarrowWideBankSelW-1:0] : '0;
   end
 
-  for (
-      genvar extraFactor = 0; extraFactor < NarrowExtraBF; extraFactor++
-  ) begin : gen_narrow_gnt_l1
+  for (genvar extraFactor = 0; extraFactor < NarrowExtraBF; extraFactor++) begin : gen_narrow_gnt_l1
     for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_gnt_l2
       localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
       always_comb begin
@@ -454,7 +452,7 @@ module memory_island_core #(
     ) begin : gen_narrow_routed_bank_l2
       for (genvar subBank = 0; subBank < NWDivisor; subBank++) begin : gen_narrow_routed_bank_l3
         localparam int unsigned WideBankIdx = (wideBank * NarrowExtraBF) + extraFactor;
-        localparam int unsigned PseudoIdx = (extraFactor * NWDivisor) + subBank;
+        localparam int unsigned PseudoIdx   = (extraFactor * NWDivisor) + subBank;
         assign narrow_req_bank[WideBankIdx][subBank] = narrow_req_routed_spill[PseudoIdx] &
             (narrow_wide_bank_sel[PseudoIdx] == wideBank);
         assign narrow_addr_bank[WideBankIdx][subBank] =
@@ -734,15 +732,15 @@ module memory_island_core #(
 
       // Memory bank
       ecc_sram #(
-        .NumWords        (WordsPerBank),
-        .UnprotectedWidth(NarrowDataWidth),
-        .InputECC        (1'b0),
-        .NumRMWCuts      (NumRMWCuts),
-        .SimInit         (MemorySimInit),
-        .HwInitEnabled   (HwInitEnabled),
-        .ByteWidth       (8),
+        .NumWords         (WordsPerBank),
+        .UnprotectedWidth (NarrowDataWidth),
+        .InputECC         (1'b0),
+        .NumRMWCuts       (NumRMWCuts),
+        .SimInit          (MemorySimInit),
+        .HwInitEnabled    (HwInitEnabled),
+        .ByteWidth        (8),
         .BankAccessLatency(BankAccessLatency),
-        .AccumEnabled    (AccumEnabled)
+        .AccumEnabled     (AccumEnabled)
       ) i_bank (
         .clk_i,
         .rst_ni,

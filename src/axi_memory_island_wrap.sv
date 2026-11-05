@@ -120,7 +120,7 @@ module axi_memory_island_wrap #(
   // it forwards; all this needs is to decode AtomicStore+ADD and pass the flag to the island,
   // which executes it in the addressed bank's read-modify-write stage. An AtomicStore answers on
   // B only, so a write-only requestor can accumulate without a read channel.
-  logic [InternalNumNarrow-1:0][5:0] narrow_atop;
+  logic [InternalNumNarrow-1:0][                5:0] narrow_atop;
 
   function automatic logic decode_accum(logic [5:0] atop);
     return (atop[5:4] == axi_pkg::ATOP_ATOMICSTORE) && (atop[2:0] == axi_pkg::ATOP_ADD);

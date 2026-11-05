@@ -14,13 +14,13 @@ module axi_memory_island_tb #(
   parameter int unsigned AddrWidth         = 32,
   parameter int unsigned NarrowDataWidth   = 32,
   parameter int unsigned WideDataWidth     = 256,
-  parameter int unsigned AxiIdWidth        = 2, // TODO
+  parameter int unsigned AxiIdWidth        = 2,                                // TODO
   parameter int unsigned AxiUserWidth      = 1,
   parameter int unsigned NumNarrowReq      = 4,
   parameter int unsigned NumWideReq        = 1,
   parameter int unsigned NumWideBanks      = 2,
   parameter int unsigned NarrowExtraBF     = 1,
-  parameter int unsigned WordsPerBank      = 512 * NumNarrowReq * NumWideReq, // TODO
+  parameter int unsigned WordsPerBank      = 512 * NumNarrowReq * NumWideReq,  // TODO
   parameter int unsigned TbNumReads        = 200,
   parameter int unsigned TbNumWrites       = 200,
   parameter int unsigned BankAccessLatency = 1,
@@ -246,8 +246,8 @@ module axi_memory_island_tb #(
           regions_being_read[req_idx][id].push_back(read_range[req_idx]);
         end
         // pop read queue on last R
-        if (axi_wide_rsp[i].r_valid && filtered_wide_req[i].r_ready &&
-            axi_wide_rsp[i].r.last && axi_wide_rsp[i].r.id == id) begin
+        if (axi_wide_rsp[i].r_valid && filtered_wide_req[i].r_ready && axi_wide_rsp[i].r.last &&
+            axi_wide_rsp[i].r.id == id) begin
           tmp_read[req_idx] = regions_being_read[req_idx][id].pop_front();
         end
       end
