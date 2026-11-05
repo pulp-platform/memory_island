@@ -40,6 +40,9 @@ module axi_memory_island_wrap #(
   /// Use 0 or 1.
   parameter int unsigned NumRMWCuts = 0,
 
+  /// Hardware initialization of the memory banks
+  parameter bit HwInitEnabled = 1'b0,
+
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
@@ -274,7 +277,8 @@ module axi_memory_island_wrap #(
     .MemorySimInit       (MemorySimInit),
     .BankAccessLatency   (BankAccessLatency),
     .AccumEnabled        (AccumEnabled),
-    .NumRMWCuts          (NumRMWCuts)
+    .NumRMWCuts          (NumRMWCuts),
+    .HwInitEnabled       (HwInitEnabled)
   ) i_memory_island (
     .clk_i,
     .rst_ni,

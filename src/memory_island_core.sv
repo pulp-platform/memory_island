@@ -57,6 +57,9 @@ module memory_island_core #(
   /// SRAM output off the SRAM-to-SRAM path, more give no timing benefit.
   parameter int unsigned NumRMWCuts = 0,
 
+  /// Hardware initialization of the memory banks, see ecc_sram.
+  parameter bit HwInitEnabled = 1'b0,
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth   = NarrowDataWidth / 8,
   parameter int unsigned WideStrbWidth     = WideDataWidth / 8,
@@ -736,6 +739,7 @@ module memory_island_core #(
         .InputECC        (1'b0),
         .NumRMWCuts      (NumRMWCuts),
         .SimInit         (MemorySimInit),
+        .HwInitEnabled   (HwInitEnabled),
         .ByteWidth       (8),
         .BankAccessLatency(BankAccessLatency),
         .AccumEnabled    (AccumEnabled)
@@ -819,8 +823,10 @@ module memory_island_core #(
       logic wide_bank_stalled;
       assign wide_bank_stalled = wide_req_bank_spill[i][j] && !wide_gnt_bank_spill[i][j];
 
+      // The bank grants nothing during its hardware initialization (HwInitEnabled)
       WideNoStarve :
-      assert property (@(posedge clk_i) disable iff (!rst_ni)
+      assert property (@(posedge clk_i)
+          disable iff (!rst_ni || gen_wide_banks[i].gen_narrow_banks[j].i_bank.init_busy)
           $rose(wide_bank_stalled) |-> not (wide_bank_stalled [* WideStarveLimit]))
       else
         $error(

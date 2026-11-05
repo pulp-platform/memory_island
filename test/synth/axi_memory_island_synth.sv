@@ -20,9 +20,7 @@ module axi_memory_island_synth #(
   localparam int unsigned NumWideBanks  = 2,
   localparam int unsigned NarrowExtraBF = 1,
   localparam int unsigned WordsPerBank  = 16384,
-  // Memory-side accumulation. Set to 1'b0 for the island without it.
   localparam bit AccumEnabled = 1'b1,
-  // Pipeline cuts in the bank read-modify-write path. Set to 0 for the island without it.
   localparam int unsigned NumRMWCuts = 1
 ) (
   input logic clk_i,
