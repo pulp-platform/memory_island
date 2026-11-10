@@ -17,11 +17,12 @@ module axi_memory_island_synth #(
 
   localparam int unsigned NumNarrowReq = 4,
   localparam int unsigned NumWideReq   = 1,
-  localparam int unsigned NumWideBanks  = 2,
+  localparam int unsigned NumWideBanks  = 4,
   localparam int unsigned NarrowExtraBF = 1,
   localparam int unsigned WordsPerBank  = 16384,
   localparam bit AccumEnabled = 1'b1,
-  localparam int unsigned NumRMWCuts = 1
+  localparam int unsigned NumRMWCuts = 1,
+  localparam bit HwInitEnabled = 1'b1
 ) (
   input logic clk_i,
   input logic rst_ni,
@@ -294,6 +295,7 @@ module axi_memory_island_synth #(
     .NarrowExtraBF       (NarrowExtraBF),
     .AccumEnabled        (AccumEnabled),
     .NumRMWCuts          (NumRMWCuts),
+    .HwInitEnabled       (HwInitEnabled),
     .MemorySimInit       ("zeros")
   ) i_mem_island (
     .clk_i,

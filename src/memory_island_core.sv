@@ -521,6 +521,16 @@ module memory_island_core #(
     .rdata_i (wide_rdata_routed)
   );
 
+  // Hardware initialization of every bank: high in reset, falls one cycle after it (see ecc_sram)
+  logic bank_init;
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_bank_init
+    if (!rst_ni) begin
+      bank_init <= 1'b1;
+    end else begin
+      bank_init <= 1'b0;
+    end
+  end
+
   for (genvar i = 0; i < NumWideBanks; i++) begin : gen_wide_banks
     mem_req_multicut #(
       .DataWidth(WideDataWidth),
@@ -748,6 +758,8 @@ module memory_island_core #(
         .scrub_trigger_i      (1'b0),
         .scrubber_fix_o       (),
         .scrub_uncorrectable_o(),
+
+        .init_i(bank_init),
 
         .wdata_i(wdata_bank_spill[i][j]),
         .addr_i (addr_bank_spill[i][j]),
