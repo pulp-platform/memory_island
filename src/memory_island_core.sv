@@ -60,6 +60,10 @@ module memory_island_core #(
   /// Hardware initialization of the memory banks, see ecc_sram.
   parameter bit HwInitEnabled = 1'b0,
 
+  /// Trigger the scrubber of every bank once each ScrubInterval cycles, 0 to disable. Each trigger
+  /// scrubs one word per bank in an idle cycle, see ecc_scrubber.
+  parameter int unsigned ScrubInterval = 0,
+
   // Derived, DO NOT OVERRIDE
   parameter int unsigned NarrowStrbWidth   = NarrowDataWidth / 8,
   parameter int unsigned WideStrbWidth     = WideDataWidth / 8,
@@ -531,6 +535,31 @@ module memory_island_core #(
     end
   end
 
+  // Scrub trigger of every bank: one cycle high each ScrubInterval cycles
+  logic bank_scrub;
+  if (ScrubInterval == 0) begin : gen_no_scrub
+    assign bank_scrub = 1'b0;
+  end else begin : gen_scrub
+    localparam int unsigned ScrubCntWidth = ScrubInterval > 1 ? $clog2(ScrubInterval) : 1;
+    logic [ScrubCntWidth-1:0] scrub_cnt;
+
+    counter #(
+      .WIDTH(ScrubCntWidth)
+    ) i_scrub_cnt (
+      .clk_i,
+      .rst_ni,
+      .clear_i   (bank_scrub),
+      .en_i      (1'b1),
+      .load_i    (1'b0),
+      .down_i    (1'b0),
+      .d_i       ('0),
+      .q_o       (scrub_cnt),
+      .overflow_o()
+    );
+
+    assign bank_scrub = scrub_cnt == ScrubCntWidth'(ScrubInterval - 1);
+  end
+
   for (genvar i = 0; i < NumWideBanks; i++) begin : gen_wide_banks
     mem_req_multicut #(
       .DataWidth(WideDataWidth),
@@ -755,7 +784,7 @@ module memory_island_core #(
         .clk_i,
         .rst_ni,
 
-        .scrub_trigger_i      (1'b0),
+        .scrub_trigger_i      (bank_scrub),
         .scrubber_fix_o       (),
         .scrub_uncorrectable_o(),
 

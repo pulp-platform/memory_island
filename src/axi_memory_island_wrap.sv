@@ -43,6 +43,9 @@ module axi_memory_island_wrap #(
   /// Hardware initialization of the memory banks
   parameter bit HwInitEnabled = 1'b0,
 
+  /// Scrub one word of every bank each ScrubInterval cycles, 0 to disable, see memory_island_core.
+  parameter int unsigned ScrubInterval = 0,
+
   /// Spill Narrow
   parameter int unsigned SpillNarrowReqEntry  = 0,
   parameter int unsigned SpillNarrowRspEntry  = 0,
@@ -353,7 +356,8 @@ module axi_memory_island_wrap #(
     .BankAccessLatency   (BankAccessLatency),
     .AccumEnabled        (AccumEnabled),
     .NumRMWCuts          (NumRMWCuts),
-    .HwInitEnabled       (HwInitEnabled)
+    .HwInitEnabled       (HwInitEnabled),
+    .ScrubInterval       (ScrubInterval)
   ) i_memory_island (
     .clk_i,
     .rst_ni,
