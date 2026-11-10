@@ -6,8 +6,8 @@
 # Run axi_memory_island_perf_tb over the accumulation scenarios for one configuration.
 #
 # Usage: scripts/run_acc_perf.sh <config> [cycles] [sv_seed]
-#   config  base   no ATOP support, one plain sub-word write per event
-#           basew  no ATOP support, one plain word write per 4 events: the write-bandwidth
+#   config  base   no accumulation, one plain sub-word write per event
+#           basew  no accumulation, one plain word write per 4 events: the write-bandwidth
 #                  ceiling that config a approaches
 #           a      per-bank saturating adder on the sensor port, a whole word per AXI write
 #           basecut, acut

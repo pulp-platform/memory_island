@@ -32,8 +32,8 @@ module axi_memory_island_wrap #(
   /// Indicates corresponding narrow requestor supports read/write (0 for read-only/write-only)
   parameter bit [  NumWideReq-1:0] WideRW   = '1,
 
-  /// Enable memory-side accumulation: AXI AtomicStore+ADD writes on the narrow ports are executed
-  /// as an accumulate in the addressed bank instead of an overwrite.
+  /// Enable memory-side accumulation: narrow writes with AW user bit 0 set are executed as an
+  /// accumulate in the addressed bank instead of an overwrite.
   parameter bit AccumEnabled = 1'b0,
 
   /// Pipeline cuts in the read-modify-write path of the banks, see memory_island_core.
@@ -116,58 +116,124 @@ module axi_memory_island_wrap #(
   logic [  InternalNumWide-1:0][  WideDataWidth-1:0] wide_rdata;
 
 
-  // Memory-side accumulation. `axi_to_mem_split` already hands out the ATOP code of every write
-  // it forwards; all this needs is to decode AtomicStore+ADD and pass the flag to the island,
-  // which executes it in the addressed bank's read-modify-write stage. An AtomicStore answers on
-  // B only, so a write-only requestor can accumulate without a read channel.
-  logic [InternalNumNarrow-1:0][                5:0] narrow_atop;
+  // Memory-side accumulation. A narrow write with AW user bit 0 set is executed as an accumulate
+  // in the addressed bank's read-modify-write stage instead of an overwrite.
+  logic [InternalNumNarrow-1:0]                      narrow_user;
 
-  function automatic logic decode_accum(logic [5:0] atop);
-    return (atop[5:4] == axi_pkg::ATOP_ATOMICSTORE) && (atop[2:0] == axi_pkg::ATOP_ADD);
-  endfunction
-
-  for (genvar i = 0; i < InternalNumNarrow; i++) begin : gen_narrow_accum_decode
-    // Without accumulation the ATOP code is ignored and an atomic write is a plain overwrite.
-    assign narrow_accum[i] = AccumEnabled ? decode_accum(narrow_atop[i]) : 1'b0;
+  for (genvar i = 0; i < InternalNumNarrow; i++) begin : gen_narrow_accum
+    // Without accumulation the user bit is ignored and every write is a plain overwrite.
+    assign narrow_accum[i] = AccumEnabled & narrow_we[i] & narrow_user[i];
   end
 
   for (genvar i = 0; i < NumNarrowReq; i++) begin : gen_narrow_conv
     localparam int unsigned Id = i + $countones(NarrowRW[i:0]);
     if (NarrowRW[i]) begin : gen_split_conv
-      axi_to_mem_split #(
-        .axi_req_t   (axi_narrow_req_t),
-        .axi_resp_t  (axi_narrow_rsp_t),
-        .AddrWidth   (AddrWidth),
-        .AxiDataWidth(NarrowDataWidth),
-        .IdWidth     (AxiNarrowIdWidth),
-        .MemDataWidth(NarrowDataWidth),
-        .BufDepth    (1 + NarrowMemRspLatency),
-        .HideStrb    (1'b0),
-        .OutFifoDepth(1)
-      ) i_narrow_conv (
+      // Same as `axi_to_mem_split`: a read and a write converter, on mem ports Id-1 and Id.
+      axi_narrow_req_t read_req, write_req;
+      axi_narrow_rsp_t read_rsp, write_rsp;
+
+      axi_demux_simple #(
+        .AxiIdWidth (AxiNarrowIdWidth),
+        .AtopSupport(1'b1),
+        .axi_req_t  (axi_narrow_req_t),
+        .axi_resp_t (axi_narrow_rsp_t),
+        .NoMstPorts (2),
+        .MaxTrans   (1 + NarrowMemRspLatency),
+        .AxiLookBits(1),
+        .UniqueIds  (1'b1)
+      ) i_narrow_split (
         .clk_i,
         .rst_ni,
-        .test_i      ('0),
-        .busy_o      (),
-        .axi_req_i   (axi_narrow_req_i[i]),
-        .axi_resp_o  (axi_narrow_rsp_o[i]),
-        .mem_req_o   (narrow_req[Id-:2]),
-        .mem_gnt_i   (narrow_gnt[Id-:2]),
-        .mem_addr_o  (narrow_addr[Id-:2]),
-        .mem_wdata_o (narrow_wdata[Id-:2]),
-        .mem_strb_o  (narrow_strb[Id-:2]),
-        .mem_atop_o  (narrow_atop[Id-:2]),
-        .mem_we_o    (narrow_we[Id-:2]),
-        .mem_rvalid_i(narrow_rvalid[Id-:2]),
-        .mem_rdata_i (narrow_rdata[Id-:2])
+        .test_i         (1'b0),
+        .slv_req_i      (axi_narrow_req_i[i]),
+        .slv_ar_select_i(1'b0),
+        .slv_aw_select_i(1'b1),
+        .slv_resp_o     (axi_narrow_rsp_o[i]),
+        .mst_reqs_o     ({write_req, read_req}),
+        .mst_resps_i    ({write_rsp, read_rsp})
       );
-    end else begin : gen_single_conv
-      axi_to_mem #(
+
+      axi_to_detailed_mem #(
         .axi_req_t   (axi_narrow_req_t),
         .axi_resp_t  (axi_narrow_rsp_t),
         .AddrWidth   (AddrWidth),
         .DataWidth   (NarrowDataWidth),
         .IdWidth     (AxiNarrowIdWidth),
+        .UserWidth   (1),
+        .NumBanks    (1),
+        .BufDepth    (1 + NarrowMemRspLatency),
+        .HideStrb    (1'b0),
+        .OutFifoDepth(1)
+      ) i_narrow_conv_read (
+        .clk_i,
+        .rst_ni,
+        .busy_o      (),
+        .axi_req_i   (read_req),
+        .axi_resp_o  (read_rsp),
+        .mem_req_o   (narrow_req[Id-1]),
+        .mem_gnt_i   (narrow_gnt[Id-1]),
+        .mem_addr_o  (narrow_addr[Id-1]),
+        .mem_wdata_o (narrow_wdata[Id-1]),
+        .mem_strb_o  (narrow_strb[Id-1]),
+        .mem_atop_o  (),
+        .mem_lock_o  (),
+        .mem_we_o    (narrow_we[Id-1]),
+        .mem_id_o    (),
+        .mem_user_o  (narrow_user[Id-1]),
+        .mem_cache_o (),
+        .mem_prot_o  (),
+        .mem_qos_o   (),
+        .mem_region_o(),
+        .mem_rvalid_i(narrow_rvalid[Id-1]),
+        .mem_rdata_i (narrow_rdata[Id-1]),
+        .mem_err_i   (1'b0),
+        .mem_exokay_i(1'b0)
+      );
+
+      axi_to_detailed_mem #(
+        .axi_req_t   (axi_narrow_req_t),
+        .axi_resp_t  (axi_narrow_rsp_t),
+        .AddrWidth   (AddrWidth),
+        .DataWidth   (NarrowDataWidth),
+        .IdWidth     (AxiNarrowIdWidth),
+        .UserWidth   (1),
+        .NumBanks    (1),
+        .BufDepth    (1 + NarrowMemRspLatency),
+        .HideStrb    (1'b0),
+        .OutFifoDepth(1)
+      ) i_narrow_conv_write (
+        .clk_i,
+        .rst_ni,
+        .busy_o      (),
+        .axi_req_i   (write_req),
+        .axi_resp_o  (write_rsp),
+        .mem_req_o   (narrow_req[Id]),
+        .mem_gnt_i   (narrow_gnt[Id]),
+        .mem_addr_o  (narrow_addr[Id]),
+        .mem_wdata_o (narrow_wdata[Id]),
+        .mem_strb_o  (narrow_strb[Id]),
+        .mem_atop_o  (),
+        .mem_lock_o  (),
+        .mem_we_o    (narrow_we[Id]),
+        .mem_id_o    (),
+        .mem_user_o  (narrow_user[Id]),
+        .mem_cache_o (),
+        .mem_prot_o  (),
+        .mem_qos_o   (),
+        .mem_region_o(),
+        .mem_rvalid_i(narrow_rvalid[Id]),
+        .mem_rdata_i (narrow_rdata[Id]),
+        .mem_err_i   (1'b0),
+        .mem_exokay_i(1'b0)
+      );
+    end else begin : gen_single_conv
+      axi_to_detailed_mem #(
+        .axi_req_t   (axi_narrow_req_t),
+        .axi_resp_t  (axi_narrow_rsp_t),
+        .AddrWidth   (AddrWidth),
+        .DataWidth   (NarrowDataWidth),
+        .IdWidth     (AxiNarrowIdWidth),
+        .UserWidth   (1),
         .NumBanks    (1),
         .BufDepth    (1 + NarrowMemRspLatency),
         .HideStrb    (1'b0),
@@ -183,10 +249,19 @@ module axi_memory_island_wrap #(
         .mem_addr_o  (narrow_addr[Id]),
         .mem_wdata_o (narrow_wdata[Id]),
         .mem_strb_o  (narrow_strb[Id]),
-        .mem_atop_o  (narrow_atop[Id]),
+        .mem_atop_o  (),
+        .mem_lock_o  (),
         .mem_we_o    (narrow_we[Id]),
+        .mem_id_o    (),
+        .mem_user_o  (narrow_user[Id]),
+        .mem_cache_o (),
+        .mem_prot_o  (),
+        .mem_qos_o   (),
+        .mem_region_o(),
         .mem_rvalid_i(narrow_rvalid[Id]),
-        .mem_rdata_i (narrow_rdata[Id])
+        .mem_rdata_i (narrow_rdata[Id]),
+        .mem_err_i   (1'b0),
+        .mem_exokay_i(1'b0)
       );
     end
   end

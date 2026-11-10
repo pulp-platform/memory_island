@@ -22,12 +22,13 @@
 //   +MERGE=0|1             sensor merges a cluster into word-wide writes (default 0)
 //   +CYCLES=<n>            measured cycles (default 20000)
 //
-// Scenarios (sensor traffic / background traffic). With AccumEnabled = 0 the sensor issues plain
-// writes instead of ATOP ADD, which gives the reference point without accumulation.
-//   P1  sensor ATOP ADD at full rate, event clusters   / none        peak accumulation rate
-//   P2  sensor ATOP ADD at full rate, all to one word  / none        worst-case serialization
-//   P3  sensor ATOP ADD at 10 M events/s               / full        expected operating point
-//   P4  sensor ATOP ADD at full rate                   / full        contention worst case
+// Scenarios (sensor traffic / background traffic). The sensor adds with AW user set. With
+// AccumEnabled = 0 it issues plain writes instead, which gives the reference point without
+// accumulation.
+//   P1  sensor add at full rate, event clusters        / none        peak accumulation rate
+//   P2  sensor add at full rate, all to one word       / none        worst-case serialization
+//   P3  sensor add at 10 M events/s                    / full        expected operating point
+//   P4  sensor add at full rate                        / full        contention worst case
 //
 // Background traffic (P3, P4): port 0 host, 20% injection, random single-beat reads and writes
 // with 30% of writes sub-word; port 1 DmaR, sequential 16-beat read bursts; port 2 DmaW,
@@ -91,9 +92,6 @@ module axi_memory_island_perf_tb #(
 
   // 10 M events/s at 1 GHz is one event per 100 cycles; a cluster averages 15 events
   localparam int unsigned ClusterPeriod = 1500;
-
-  // The ATOP code the island executes as an accumulate
-  localparam axi_pkg::atop_t AtopAdd = {axi_pkg::ATOP_ATOMICSTORE, 1'b0, axi_pkg::ATOP_ADD};
 
   logic clk, rst_n;
 
@@ -240,7 +238,7 @@ module axi_memory_island_perf_tb #(
   logic [      AddrWidth-1:0] ar_addr [NumNarrowReq] = '{default: '0};
   logic [                7:0] aw_len  [NumNarrowReq] = '{default: '0};
   logic [                7:0] ar_len  [NumNarrowReq] = '{default: '0};
-  logic [                5:0] aw_atop [NumNarrowReq] = '{default: '0};
+  logic                       aw_user [NumNarrowReq] = '{default: '0};
   logic [NarrowDataWidth-1:0] w_data  [NumNarrowReq] = '{default: '0};
   logic [NarrowStrbWidth-1:0] w_strb  [NumNarrowReq] = '{default: '0};
 
@@ -252,7 +250,7 @@ module axi_memory_island_perf_tb #(
       narrow_req[p].aw.len   = aw_len[p];
       narrow_req[p].aw.size  = 3'd2;
       narrow_req[p].aw.burst = axi_pkg::BURST_INCR;
-      narrow_req[p].aw.atop  = aw_atop[p];
+      narrow_req[p].aw.user  = aw_user[p];
       narrow_req[p].aw_valid = aw_valid[p];
       narrow_req[p].w.data   = w_data[p];
       narrow_req[p].w.strb   = w_strb[p];
@@ -334,7 +332,7 @@ module axi_memory_island_perf_tb #(
     logic [                7:0] len;
     logic [NarrowDataWidth-1:0] data;
     logic [NarrowStrbWidth-1:0] strb;
-    logic [                5:0] atop;
+    logic                       accum;
     int unsigned                events;
     longint unsigned            issue_cyc;
     logic                       counted;
@@ -378,7 +376,7 @@ module axi_memory_island_perf_tb #(
           t = sensor_awq.pop_front();
           aw_addr [PortSensor] <= t.addr;
           aw_len  [PortSensor] <= t.len;
-          aw_atop [PortSensor] <= t.atop;
+          aw_user [PortSensor] <= t.accum;
           aw_valid[PortSensor] <= 1'b1;
           sensor_wq.push_back(t);
         end else begin
@@ -429,11 +427,11 @@ module axi_memory_island_perf_tb #(
   // Event generation //
   //////////////////////
 
-  // Issue one sensor write and mirror it in the shadow frame: an ATOP ADD with accumulation, a
-  // plain write without it.
+  // Issue one sensor write and mirror it in the shadow frame: an accumulate (AW user set) with
+  // accumulation, a plain write without it.
   task automatic sensor_event_write(input narrow_txn_t txn);
     if (AccumEnabled) begin
-      txn.atop = AtopAdd;
+      txn.accum = 1'b1;
       shadow_add(txn.addr, txn.data, txn.strb);
     end else begin
       shadow_write(txn.addr, txn.data, txn.strb);
@@ -682,17 +680,17 @@ module axi_memory_island_perf_tb #(
   // Directed checks //
   /////////////////////
 
-  // Hand one single-beat write to the sensor master: a plain write, or an accumulate with AtopAdd
+  // Hand one single-beat write to the sensor master: a plain write, or an accumulate (AW user set)
   task automatic sensor_write(input logic [AddrWidth-1:0] addr,
                               input logic [NarrowDataWidth-1:0] data,
                               input logic [NarrowStrbWidth-1:0] strb,
-                              input axi_pkg::atop_t atop = '0);
+                              input logic accum = 1'b0);
     narrow_txn_t txn;
     txn      = '{default: '0};
     txn.addr = addr;
     txn.data = data;
     txn.strb = strb;
-    txn.atop = atop;
+    txn.accum = accum;
     sensor_send(txn);
   endtask
 
@@ -703,25 +701,25 @@ module axi_memory_island_perf_tb #(
     // 1. a single-byte +1 increments exactly once
     sensor_write(ScratchBase, 32'h0000_0005, '1);
     drain_sensor();
-    sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, AtopAdd);
+    sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, 1'b1);
     drain_sensor();
     expect_word(ScratchBase, 32'h0000_0006, "single byte +1");
 
     // 2. an addend of 0xFF decrements
-    sensor_write(ScratchBase, 32'h0000_00FF, 4'b0001, AtopAdd);
+    sensor_write(ScratchBase, 32'h0000_00FF, 4'b0001, 1'b1);
     drain_sensor();
     expect_word(ScratchBase, 32'h0000_0005, "single byte -1");
 
     // 3. back-to-back adds, same byte then a neighbouring byte of the same word
-    for (int i = 0; i < 4; i++) sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, AtopAdd);
-    for (int i = 0; i < 3; i++) sensor_write(ScratchBase, 32'h0000_0100, 4'b0010, AtopAdd);
+    for (int i = 0; i < 4; i++) sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, 1'b1);
+    for (int i = 0; i < 3; i++) sensor_write(ScratchBase, 32'h0000_0100, 4'b0010, 1'b1);
     drain_sensor();
     expect_word(ScratchBase, 32'h0000_0309, "back-to-back same word");
 
-    // 4. plain writes and reads on the same port still work around ATOPs
+    // 4. plain writes and reads on the same port still work around accumulates
     sensor_write(ScratchBase + 4, 32'hDEAD_BEEF, '1);
     drain_sensor();
-    sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, AtopAdd);
+    sensor_write(ScratchBase, 32'h0000_0001, 4'b0001, 1'b1);
     expect_word(ScratchBase + 4, 32'hDEAD_BEEF, "plain write");
     drain_sensor();
     expect_word(ScratchBase, 32'h0000_030A, "add after plain write");
@@ -729,7 +727,7 @@ module axi_memory_island_perf_tb #(
     // 5. multi-lane add: every lane adds on its own, no carry into the neighbouring lane
     sensor_write(ScratchBase + 8, 32'h0505_0505, '1);
     drain_sensor();
-    sensor_write(ScratchBase + 8, 32'h0101_0101, 4'b1111, AtopAdd);
+    sensor_write(ScratchBase + 8, 32'h0101_0101, 4'b1111, 1'b1);
     drain_sensor();
     exp = model_accum(32'h0505_0505, 32'h0101_0101, 4'b1111);
     expect_word(ScratchBase + 8, exp, "multi-lane add");
@@ -737,7 +735,7 @@ module axi_memory_island_perf_tb #(
     // 6. clamp at both ends instead of wrapping
     sensor_write(ScratchBase + 12, 32'h807F_807F, '1);
     drain_sensor();
-    sensor_write(ScratchBase + 12, 32'h01FF_FF01, 4'b1111, AtopAdd);
+    sensor_write(ScratchBase + 12, 32'h01FF_FF01, 4'b1111, 1'b1);
     drain_sensor();
     // lane0 7F+01 -> 7F, lane1 80+FF -> 80, lane2 7F+FF -> 7E, lane3 80+01 -> 81
     expect_word(ScratchBase + 12, 32'h817E_807F, "saturation clamp");
