@@ -155,6 +155,7 @@ module axi_memory_island_perf_tb #(
     .clk_i           (clk),
     .rst_ni          (rst_n),
     .bank_init_i     (1'b0),
+    .bank_init_busy_o(),
     .axi_narrow_req_i(narrow_req),
     .axi_narrow_rsp_o(narrow_rsp),
     .axi_wide_req_i  (wide_req),

@@ -27,7 +27,10 @@ module axi_memory_island_synth #(
 ) (
   input logic clk_i,
   input logic rst_ni,
+
   input logic bank_init_i,
+
+  output logic [NumWideBanks-1:0][WideDataWidth/NarrowDataWidth-1:0] bank_init_busy_o,
 
   input  logic             [NumNarrowReq-1:0]                        s_axi_narrow_awvalid,
   input  logic             [NumNarrowReq-1:0][ AxiNarrowIdWidth-1:0] s_axi_narrow_awid,
@@ -304,6 +307,7 @@ module axi_memory_island_synth #(
     .clk_i,
     .rst_ni,
     .bank_init_i,
+    .bank_init_busy_o,
 
     .axi_narrow_req_i(narrow_cut_req),
     .axi_narrow_rsp_o(narrow_cut_rsp),

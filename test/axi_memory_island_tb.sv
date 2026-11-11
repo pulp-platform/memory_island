@@ -639,6 +639,7 @@ module axi_memory_island_tb #(
     .clk_i           (clk),
     .rst_ni          (rst_n),
     .bank_init_i     (bank_init),
+    .bank_init_busy_o(),
     .axi_narrow_req_i(dut_narrow_req),
     .axi_narrow_rsp_o(dut_narrow_rsp),
     .axi_wide_req_i  (dut_wide_req),

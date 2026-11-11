@@ -77,6 +77,9 @@ module memory_island_core #(
   // Synchronous active-high init of the banks (HwInitEnabled): they are zeroed after it falls.
   input logic bank_init_i,
 
+  // Per bank: high while it is zeroed after bank_init_i and grants nothing. 0 if HwInitEnabled is 0.
+  output logic [NumWideBanks-1:0][NWDivisor-1:0] bank_init_busy_o,
+
   // Narrow inputs
   input  logic [NumNarrowReq-1:0]                      narrow_req_i,
   output logic [NumNarrowReq-1:0]                      narrow_gnt_o,
@@ -781,7 +784,8 @@ module memory_island_core #(
         .scrubber_fix_o       (),
         .scrub_uncorrectable_o(),
 
-        .init_i(bank_init_i),
+        .init_i     (bank_init_i),
+        .init_busy_o(bank_init_busy_o[i][j]),
 
         .wdata_i(wdata_bank_spill[i][j]),
         .addr_i (addr_bank_spill[i][j]),
@@ -858,7 +862,7 @@ module memory_island_core #(
       // The bank grants nothing during its hardware initialization (HwInitEnabled)
       WideNoStarve :
       assert property (@(posedge clk_i)
-          disable iff (!rst_ni || gen_wide_banks[i].gen_narrow_banks[j].i_bank.init_busy)
+          disable iff (!rst_ni || bank_init_busy_o[i][j])
           $rose(wide_bank_stalled) |-> not (wide_bank_stalled [* WideStarveLimit]))
       else
         $error(

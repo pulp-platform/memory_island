@@ -104,9 +104,12 @@ module memory_island_core_perf_tb #(
     .BankAccessLatency   (BankAccessLatency),
     .NumRMWCuts          (NumRMWCuts)
   ) i_dut (
-    .clk_i          (clk),
-    .rst_ni         (rst_n),
-    .bank_init_i    (1'b0),
+    .clk_i (clk),
+    .rst_ni(rst_n),
+
+    .bank_init_i     (1'b0),
+    .bank_init_busy_o(),
+
     .narrow_req_i   (narrow_req),
     .narrow_gnt_o   (narrow_gnt),
     .narrow_addr_i  (narrow_addr),

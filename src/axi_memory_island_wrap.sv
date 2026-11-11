@@ -82,6 +82,9 @@ module axi_memory_island_wrap #(
   // Synchronous active-high init of the banks (HwInitEnabled): they are zeroed after it falls.
   input logic bank_init_i,
 
+  // Per bank: high while it is zeroed after bank_init_i and grants nothing. 0 if HwInitEnabled is 0.
+  output logic [NumWideBanks-1:0][WideDataWidth/NarrowDataWidth-1:0] bank_init_busy_o,
+
   input  axi_narrow_req_t [NumNarrowReq-1:0] axi_narrow_req_i,
   output axi_narrow_rsp_t [NumNarrowReq-1:0] axi_narrow_rsp_o,
 
@@ -365,6 +368,7 @@ module axi_memory_island_wrap #(
     .clk_i,
     .rst_ni,
     .bank_init_i,
+    .bank_init_busy_o,
 
     .narrow_req_i   (narrow_req),
     .narrow_gnt_o   (narrow_gnt),
