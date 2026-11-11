@@ -78,7 +78,7 @@ module varlat_inorder_interco #(
 );
 
   localparam int unsigned NumOutLog2 = $clog2(NumOut);
-  localparam int unsigned NumInLog2 = $clog2(NumIn);
+  localparam int unsigned NumInLog2 = cf_math_pkg::idx_width(NumIn);
   localparam int unsigned AggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth;
   logic [ NumIn-1:0][AggDataWidth-1:0] data_agg_in;
   logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
