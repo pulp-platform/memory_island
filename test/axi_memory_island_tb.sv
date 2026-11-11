@@ -591,6 +591,13 @@ module axi_memory_island_tb #(
   end
 
   // DUT
+  // Initialize the banks right after reset: high in reset, falls one cycle after it
+  logic bank_init;
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) bank_init <= 1'b1;
+    else bank_init <= 1'b0;
+  end
+
   axi_memory_island_wrap #(
     .AddrWidth       (AddrWidth),
     .NarrowDataWidth (NarrowDataWidth),
@@ -631,6 +638,7 @@ module axi_memory_island_tb #(
   ) i_dut (
     .clk_i           (clk),
     .rst_ni          (rst_n),
+    .bank_init_i     (bank_init),
     .axi_narrow_req_i(dut_narrow_req),
     .axi_narrow_rsp_o(dut_narrow_rsp),
     .axi_wide_req_i  (dut_wide_req),

@@ -106,6 +106,7 @@ module memory_island_core_perf_tb #(
   ) i_dut (
     .clk_i          (clk),
     .rst_ni         (rst_n),
+    .bank_init_i    (1'b0),
     .narrow_req_i   (narrow_req),
     .narrow_gnt_o   (narrow_gnt),
     .narrow_addr_i  (narrow_addr),
