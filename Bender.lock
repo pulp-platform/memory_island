@@ -37,7 +37,7 @@ packages:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
   redundancy_cells:
-    revision: b83c958ea34a3ae577cf96425948b7c471c74d5d
+    revision: b5cef49a44343e3e5bf8a53d9116cddbe04f0503
     version: null
     source:
       Git: https://github.com/pulp-platform/redundancy_cells.git
